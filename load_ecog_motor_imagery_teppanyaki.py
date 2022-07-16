@@ -13,10 +13,15 @@ includes some visualizations
 
 # @title Data retrieval
 import os, requests
+from matplotlib import rcParams
+from matplotlib import pyplot as plt
+import numpy as np
+from nilearn import plotting
+from nimare import utils
 
+# %%
 fname = 'motor_imagery.npz'
 url = "https://osf.io/ksqv8/download"
-
 if not os.path.isfile(fname):
   try:
     r = requests.get(url)
@@ -29,15 +34,7 @@ if not os.path.isfile(fname):
       with open(fname, "wb") as fid:
         fid.write(r.content)
 
-# @title Install packages (`nilearn`, `nimare`. `duecredit`), import `matplotlib` and set defaults
-# install packages to visualize brains and electrode locations
-!pip install nilearn --quiet
-!pip install nimare --quiet
-!pip install duecredit --quiet
-
-from matplotlib import rcParams
-from matplotlib import pyplot as plt
-
+# %%
 rcParams['figure.figsize'] = [20, 4]
 rcParams['font.size'] = 15
 rcParams['axes.spines.top'] = False
@@ -45,7 +42,6 @@ rcParams['axes.spines.right'] = False
 rcParams['figure.autolayout'] = True
 
 # @title Data loading
-import numpy as np
 
 alldat = np.load(fname, allow_pickle=True)['dat']
 
@@ -55,6 +51,8 @@ dat2 = alldat[0][1]
 
 print(dat1.keys())
 print(dat2.keys())
+
+# %%
 
 """# Dataset info #
 
@@ -93,8 +91,7 @@ Both experiments:
 * `dat['locs`]`: 3D electrode positions on the brain surface
 """
 
-from nilearn import plotting
-from nimare import utils
+# %%
 
 plt.figure(figsize=(8, 8))
 locs = dat1['locs']
@@ -104,6 +101,7 @@ view = plotting.view_markers(utils.tal2mni(locs),
                              marker_size=5)
 view
 
+# %%
 # quick way to get broadband power in time-varying windows
 from scipy import signal
 
@@ -151,6 +149,7 @@ for j in range(46):
   plt.ylim([0, 4])
 plt.show()
 
+#%%
 # let's look at all the trials for electrode 20 that has a good response to hand movements
 # we will sort trials by stimulus id
 plt.subplot(1, 3, 1)
@@ -162,6 +161,7 @@ plt.imshow(V_epochs[isort, :, 20].astype('float32'),
 plt.colorbar()
 plt.show()
 
+# %%
 # Electrode 42 seems to respond to tongue movements
 isort = np.argsort(dat1['stim_id'])
 plt.subplot(1, 3, 1)
@@ -171,3 +171,93 @@ plt.imshow(V_epochs[isort, :, 42].astype('float32'),
            cmap='magma')
 plt.colorbar()
 plt.show()
+
+
+# %%
+import pandas as pd
+
+data = {'electrode': [x for x in range(0,46)], 'Area': dat1['Brodmann_Area']}
+
+pd.DataFrame.from_dict(data)
+
+print(data)
+
+# %%
+
+V_epochs.shape
+_, __ , z = V_epochs.shape
+
+V_new1 = V_epochs[1:10,0:2000,:]
+V_new1.shape
+
+for i in range(1,10) :
+
+  plt.subplot(3, 3, i)
+  V_new = V_new1[i-1]
+  plt.imshow(V_new.T.astype('float32'),
+           aspect='auto',
+           vmax=7, vmin=0,
+           cmap='magma')
+  plt.colorbar()
+  plt.show()
+
+
+# %%
+
+#not all patients have same number of electrodes
+#the electrodes are not placed in similar places.
+# for patient two there is no distinct activity observed in the 
+
+dat3 = alldat[2][0]
+
+V = dat3['V'].astype('float32')
+
+# high-pass filter above 50 Hz
+b, a = signal.butter(3, [50], btype='high', fs=1000)
+V = signal.filtfilt(b, a, V, 0)
+
+# compute smooth envelope of this signal = approx power
+V = np.abs(V)**2
+b, a = signal.butter(3, [10], btype='low', fs=1000)
+V = signal.filtfilt(b, a, V, 0)
+
+# normalize each channel so its mean power is 1
+V = V/V.mean(0)
+
+dat3.keys()
+
+# average the broadband power across all tongue and hand trials
+nt, nchan = V.shape
+nstim = len(dat3['t_on'])
+
+trange = np.arange(0, 2000)
+ts = dat3['t_on'][:, np.newaxis] + trange
+V_epochs = np.reshape(V[ts, :], (nstim, 2000, nchan))
+
+V_tongue = (V_epochs[dat1['stim_id'] == 11]).mean(0)
+V_hand = (V_epochs[dat1['stim_id'] == 12]).mean(0)
+
+# let's find the electrodes that distinguish tongue from hand movements
+# note the behaviors happen some time after the visual cue
+
+plt.figure(figsize=(20, 10))
+for j in range(48):
+  ax = plt.subplot(5, 10, j+1)
+  plt.plot(trange, V_tongue[:, j])
+  plt.plot(trange, V_hand[:, j])
+  plt.title('ch%d'%j)
+  plt.xticks([0, 1000, 2000])
+  plt.ylim([0, 4])
+plt.show()
+# %%
+data = {'electrode': [x for x in range(0,48)], 'Area': dat3['Brodmann_Area']}
+
+data = pd.DataFrame.from_dict(data)
+
+print(data)
+
+# %%
+
+# epoch ..of our data
+# time domain to frequency domain - fft
+#fft gives the power spectrum.
