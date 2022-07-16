@@ -8,6 +8,16 @@ from mne import io
 from mne.datasets import sample
 from mne.viz import plot_topomap
 
+# Import some NeuroDSP functions to use with MNE
+from neurodsp.spectral import compute_spectrum, trim_spectrum
+from neurodsp.burst import detect_bursts_dual_threshold
+from neurodsp.rhythm import compute_lagged_coherence
+
+# Import NeuroDSP plotting functions
+from neurodsp.plts import (plot_time_series, plot_power_spectra,
+                           plot_bursts, plot_lagged_coherence)
+                           
+# For converting tal coords to MNI coords
 from nimare import utils
 
 def get_all_data(save_to='motor_imagery.npz'):
@@ -41,13 +51,43 @@ def get_mne_data():
     raw = io.read_raw_fif(raw_fname, preload=True, verbose=False)
     # Select EEG channels from the dataset
     raw = raw.pick_types(meg=False, eeg=True, eog=False, exclude='bads')
+    return raw
+
+def mne_tutorial(raw):
     # Grab the sampling rate from the data
     fs = raw.info['sfreq']
-    import pdb; pdb.set_trace()
     # Settings for exploring an example channel of data
     ch_label = 'EEG 058'
     t_start = 20000
     t_stop = int(t_start + (10 * fs))
+    # Extract an example channel to explore
+    sig, times = raw.get_data(mne.pick_channels(raw.ch_names, [ch_label]),
+                            start=t_start, stop=t_stop, return_times=True)
+    sig = np.squeeze(sig)
+
+    # plot time series
+    fig = plt.figure(figsize=(8,3))
+    ax = fig.gca()
+    # Plot a segment of the extracted time series data
+    plot_time_series(times, sig, ax=ax)
+    fig.savefig('plots/time_series_plot.png',facecolor='white', bbox_inches='tight')
+    plt.close(fig)
+
+    # Calculate the power spectrum, using median Welch's & extract a frequency range of interest
+    freqs, powers = compute_spectrum(sig, fs, method='welch', avg_type='median')
+    freqs, powers = trim_spectrum(freqs, powers, [3, 30])
+
+    # Check where the peak power is
+    peak_cf = freqs[np.argmax(powers)]
+    print(peak_cf)
+
+    # Plot the power spectra, and note the peak power
+    fig = plt.figure()
+    ax = fig.gca()
+    plot_power_spectra(freqs, powers, ax=ax)
+    ax.plot(freqs[np.argmax(powers)], np.max(powers), '.r', ms=12)
+    fig.savefig('plots/power_spectra.png',facecolor='white', bbox_inches='tight')
+    plt.close(fig)
 
 def get_events(subject_data):
 
@@ -119,6 +159,7 @@ def get_mean_evokeds(epochs):
 if __name__ == "__main__":
 
     mne_data = get_mne_data()
+    mne_tutorial(mne_data)
 
     # Data from NMA
     ECoG_data =  get_all_data()
