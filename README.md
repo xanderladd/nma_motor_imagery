@@ -29,9 +29,7 @@
 3. Decoding:
     - use z-scores from the encoding step to classify between events
 
-**careful not to try _everything_ lets pick our battles esp. considering we have two weeks **
----------------------------------------------------------------------------------------------------------------------
-## Maybe goals
+#### Maybe goals
 3. Why model? There are two possible explanations (recruiting v.s. firing rate incr.)
     - Is there a model that can address this hypothesis? It would address the recurrent relationship.
     - Do we have the spatial or temporal resolution to address this?
