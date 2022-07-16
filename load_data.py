@@ -30,8 +30,8 @@ def get_all_data():
         alldat = np.load(fname, allow_pickle=True)['dat']
     return alldat
 
-def get_subject_data(alldat, subject, recording=0):
-    return alldat[subject][0]
+def get_subject_data(alldat, subject, session=0):
+    return alldat[subject][session]
 
 def get_mne_data():
     # Get the data path for the MNE example data
@@ -48,14 +48,16 @@ def get_mne_data():
     t_start = 20000
     t_stop = int(t_start + (10 * fs))
 
-def subject_to_mne():
-    info = mne.create_info(ch_names=['10 Hz sine', '5 Hz cosine'],
-                       ch_types=['misc'] * 2,
-                       sfreq=sampling_freq)
+def subject_to_mne(subject_data):
 
-    simulated_raw = mne.io.RawArray(data, info)
-    simulated_raw.plot(show_scrollbars=False, show_scalebars=False)
+    n_channels = len(subject_data['locs'])
+    sampling_freq = subject_data['srate']  # in Hertz
+    info = mne.create_info(n_channels, sfreq=sampling_freq, ch_types='ecog')
 
+    data = subject_data['V'].T
+    raw = mne.io.RawArray(data, info)
+
+    return raw
 
 
 
@@ -63,3 +65,7 @@ if __name__ == "__main__":
     ECoG_data =  get_all_data()
     mne_data = get_mne_data()
 
+    # convert NMA dataset to MNE raw format
+    alldat = get_all_data()
+    sub_0_real = get_subject_data(alldat, 0, session=0)
+    raw_sub_0_real = subject_to_mne(sub_0_real)
