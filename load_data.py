@@ -50,13 +50,27 @@ def get_mne_data():
 
 def subject_to_mne(subject_data):
 
+    # create mne info data structure
     n_channels = len(subject_data['locs'])
     sampling_freq = subject_data['srate']  # in Hertz
     info = mne.create_info(n_channels, sfreq=sampling_freq, ch_types='ecog')
 
+    # initialise mne raw data struct
     data = subject_data['V'].T
     raw = mne.io.RawArray(data, info)
 
+    # create event array with [onset, duration, trial_type]
+    onset = np.concatenate((subject_data['t_off'], subject_data['t_on']))
+    onset = np.sort(onset)
+    trial_type = np.insert(subject_data['stim_id'], range(1, len(subject_data['stim_id'])+1, 1), 10)
+    duration = np.diff(onset, append=onset[-1]+(onset[-1]-onset[-2]))
+    event = np.array([onset, duration, trial_type]).T
+    event = np.delete(event, -1, 0)
+
+    # add events as annotations to the raw data
+    subject_data.set_annotations(mne.annotations_from_events(event, sfreq=1000))
+
+    # TODO: add electrode locations to raw data
     return raw
 
 
