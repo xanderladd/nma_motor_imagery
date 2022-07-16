@@ -8,9 +8,10 @@ from mne import io
 from mne.datasets import sample
 from mne.viz import plot_topomap
 
+from nimare import utils
 
 def get_all_data():
-    fname = 'motor_imagery.npz'
+    fname = os.path.join('data', 'motor_imagery.npz')
     url = "https://osf.io/ksqv8/download"
 
     if not os.path.isfile(fname):
@@ -48,7 +49,31 @@ def get_mne_data():
     t_start = 20000
     t_stop = int(t_start + (10 * fs))
 
-def subject_to_mne(subject_data):
+def get_events(subject_data):
+
+    # create event array with [onset, duration, trial_type]
+    onset = np.concatenate((subject_data['t_off'], subject_data['t_on']))
+    onset = np.sort(onset)
+    trial_type = np.insert(subject_data['stim_id'], range(1, len(subject_data['stim_id'])+1, 1), 10)
+    duration = np.diff(onset, append=onset[-1]+(onset[-1]-onset[-2]))
+    events = np.array([onset, duration, trial_type]).T
+    events = np.delete(events, -1, 0)
+
+    return events
+
+def get_montage(subject_data, raw):
+
+    # convert tal to
+    mni_locs = utils.tal2mni(subject_data['locs'])
+    channel_names = raw.ch_names
+    loc_dict = dict(zip(channel_names, zip(*mni_locs.T)))
+    for channel in channel_names:
+        loc_dict[str(channel)] = np.array(loc_dict[str(channel)])
+    montage = mne.channels.make_dig_montage(loc_dict, coord_frame='head')
+
+    return montage
+
+def get_raw(subject_data):
 
     # create mne info data structure
     n_channels = len(subject_data['locs'])
@@ -56,30 +81,51 @@ def subject_to_mne(subject_data):
     info = mne.create_info(n_channels, sfreq=sampling_freq, ch_types='ecog')
 
     # initialise mne raw data struct
-    data = subject_data['V'].T
+    data = subject_data['V'].astype('float32').T
     raw = mne.io.RawArray(data, info)
 
     # create event array with [onset, duration, trial_type]
-    onset = np.concatenate((subject_data['t_off'], subject_data['t_on']))
-    onset = np.sort(onset)
-    trial_type = np.insert(subject_data['stim_id'], range(1, len(subject_data['stim_id'])+1, 1), 10)
-    duration = np.diff(onset, append=onset[-1]+(onset[-1]-onset[-2]))
-    event = np.array([onset, duration, trial_type]).T
-    event = np.delete(event, -1, 0)
+    events = get_events(subject_data)
 
     # add events as annotations to the raw data
-    subject_data.set_annotations(mne.annotations_from_events(event, sfreq=1000))
+    raw.set_annotations(mne.annotations_from_events(events, sfreq=1000))
 
-    # TODO: add electrode locations to raw data
+    # add electrode locations to raw data
+    montage = get_montage(subject_data, raw)
+    raw.set_montage(montage)
+
     return raw
+
+def get_epochs(subject_data, event_ids):
+    
+    raw = get_raw(subject_data)
+    event = get_events(subject_data)
+    epoch = mne.Epochs(raw, event, event_ids, baseline=None, detrend=None, tmin=0, tmax=3)
+
+    return epoch
+
+def get_mean_evokeds(epochs):
+
+    evokeds = []
+
+    for event_ids, events in epochs.event_id.items():
+        evoked = epochs[event_ids].average()
+        evokeds.append(evoked)
+
+    return evokeds
 
 
 
 if __name__ == "__main__":
-    ECoG_data =  get_all_data()
+
     mne_data = get_mne_data()
 
-    # convert NMA dataset to MNE raw format
-    alldat = get_all_data()
-    sub_0_real = get_subject_data(alldat, 0, session=0)
-    raw_sub_0_real = subject_to_mne(sub_0_real)
+    # Data from NMA
+    ECoG_data =  get_all_data()
+    event_ids = dict(rest=10, tongue=11, hand=12)
+    subject_data = get_subject_data(ECoG_data, 0, 0)
+
+    # MNE data formats
+    raw = get_raw(subject_data)
+    epochs = get_epochs(subject_data, event_ids)
+    evokeds = get_mean_evokeds(epochs)
