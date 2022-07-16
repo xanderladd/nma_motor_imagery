@@ -10,8 +10,8 @@ from mne.viz import plot_topomap
 
 from nimare import utils
 
-def get_all_data():
-    fname = os.path.join('data', 'motor_imagery.npz')
+def get_all_data(save_to='motor_imagery.npz'):
+    fname = save_to
     url = "https://osf.io/ksqv8/download"
 
     if not os.path.isfile(fname):
