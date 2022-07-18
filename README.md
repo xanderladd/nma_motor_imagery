@@ -1,10 +1,9 @@
 ## Questions
-1. Can we use electrodes to predict ***what*** the stimulus is (hand v. tongue) (real v. imagery) ?
-       - 95% classification acc.!!:cook::sunglasses::sunglasses:
-2. Can we use the model to show ***how*** electrodes/regions are more/less responsible for imagery v.s. real movement + hand v.s. tongue.
+Q. How precisely/accurately our model can classify motor behavior among - real, imagery, hand and tongue movements from ECoG neural activity?
+(2. Can we use the model to show ***how*** electrodes/regions are more/less responsible for imagery v.s. real movement + hand v.s. tongue.
      - linear combinations of sites or non-linear (lasso) , MI, CMI
      - do these models explain Figure 2 (spatially)
-     - If we train an autoregressive model we can do this for the temporal range before/during stim.
+     - If we train an autoregressive model we can do this for the temporal range before/during stim.)
 
 ## Roadmap
 0. Create Git
