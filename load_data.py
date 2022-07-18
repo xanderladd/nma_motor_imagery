@@ -121,7 +121,8 @@ def get_raw(subject_data):
     info = mne.create_info(n_channels, sfreq=sampling_freq, ch_types='ecog')
 
     # initialise mne raw data struct
-    data = subject_data['V'].astype('float32').T
+    data_uv = (subject_data['scale_uv'] *  subject_data['V'].astype('float32'))/10**6
+    data = data_uv.T
     raw = mne.io.RawArray(data, info)
 
     # create event array with [onset, duration, trial_type]
