@@ -5,7 +5,15 @@ Q. How precisely/accurately our model can classify motor behavior among - real, 
      - linear combinations of sites or non-linear (lasso) , MI, CMI
      - do these models explain Figure 2 (spatially)
      - If we train an autoregressive model we can do this for the temporal range before/during stim.)
+## Relevant Literature (Maybe)
 
+1. Classifying ECoG/EEG-Based Motor Imagery Tasks [ref](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=4463260)
+     * Power spectral density is used as the features.
+     * to handle redundancy : Fisher discriminant analysis (FDA) and common spatial patterns (CSP) < No backgorund on these>
+     * Simple KNN model is used as classifier.  
+2. < Using connected paper tool>   Performance of common spatial pattern under a smaller set of EEG electrodes in brain-computer interface on chronic stroke patients: A multi-session dataset study [ref](https://ieeexplore.ieee.org/document/6091566)
+     * Using the CSP -rank mechanism selecting the subset of electrodes. ( question can this be done in the short time frame)
+     
 ## Ingredients
 - Input: $X_t \in \mathbf{R}^{46x3000}$, 46 channels over 100hz for 3000 measurements. ~ 60 samples per subject.
 - Filter: $f$
@@ -16,14 +24,6 @@ Q. How precisely/accurately our model can classify motor behavior among - real, 
  - Output: $y_t$, label in the set [real,imaginary] & [hand,tongue].
 
 
-## Relevant Literature (Maybe)
-
-1. Classifying ECoG/EEG-Based Motor Imagery Tasks [ref](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=4463260)
-     * Power spectral density is used as the features.
-     * to handle redundancy : Fisher discriminant analysis (FDA) and common spatial patterns (CSP) < No backgorund on these>
-     * Simple KNN model is used as classifier.  
-2. < Using connected paper tool>   Performance of common spatial pattern under a smaller set of EEG electrodes in brain-computer interface on chronic stroke patients: A multi-session dataset study [ref](https://ieeexplore.ieee.org/document/6091566)
-     * Using the CSP -rank mechanism selecting the subset of electrodes. ( question can this be done in the short time frame)
      
 ## Formulate mathematical hypothesis
 - Decoder model: $\theta(f(X_t)) = \hat{y}_t$
