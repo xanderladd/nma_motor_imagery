@@ -21,10 +21,8 @@ Q. How precisely/accurately our model can classify motor behavior among - real, 
 1. Classifying ECoG/EEG-Based Motor Imagery Tasks [ref](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=4463260)
      * Power spectral density is used as the features.
      * to handle redundancy : Fisher discriminant analysis (FDA) and common spatial patterns (CSP) < No backgorund on these>
-     * Simple KNN model is used as classifier.
-
- < Using connected paper tool>    
-2. Performance of common spatial pattern under a smaller set of EEG electrodes in brain-computer interface on chronic stroke patients: A multi-session dataset study [ref](https://ieeexplore.ieee.org/document/6091566)
+     * Simple KNN model is used as classifier.  
+2. < Using connected paper tool>   Performance of common spatial pattern under a smaller set of EEG electrodes in brain-computer interface on chronic stroke patients: A multi-session dataset study [ref](https://ieeexplore.ieee.org/document/6091566)
      * Using the CSP -rank mechanism selecting the subset of electrodes. ( question can this be done in the short time frame)
      
 ## Formulate mathematical hypothesis
