@@ -24,7 +24,7 @@ Q. How precisely/accurately our model can classify motor behavior among - real, 
      
 ## Formulate mathematical hypothesis
      f(X_t) = \hat{y}_t
-     1/N \sum_{i=1}{n} y_t log(\hat{y_t}) + (1-y_t) log((1-\hat{y_t}))
+     Loss fxn : binary crossentropy: 1/N \sum_{i=1}{n} y_t log(\hat{y_t}) + (1-y_t) log((1-\hat{y_t}))
  
  < Using connected paper tool>    
 2. Performance of common spatial pattern under a smaller set of EEG electrodes in brain-computer interface on chronic stroke patients: A multi-session dataset study [ref](https://ieeexplore.ieee.org/document/6091566)
