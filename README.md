@@ -7,12 +7,13 @@ Q. How precisely/accurately our model can classify motor behavior among - real, 
      - If we train an autoregressive model we can do this for the temporal range before/during stim.)
 
 ## Ingredients
-     - Input: X_t, 46 channels over 100hz for 3000 measurements. ~ 60 samples per subject.
-     - Filter: f
-          - PSD
-          - Moving average
-      - Feedback / preprocessing: T-score from GLM (why), PCA/ICA (what model)
-      - Output: y_t, label in the set [real,imaginary] & [hand,tongue].
+- Input: $X_t \in \mathbf{R}^{46x3000}$, 46 channels over 100hz for 3000 measurements. ~ 60 samples per subject.
+- Filter: $f$
+     - PSD
+     - Moving average
+ - Model: $\theta$
+ - Feedback / preprocessing: T-score from GLM (why), PCA/ICA (what model)
+ - Output: $y_t$, label in the set [real,imaginary] & [hand,tongue].
 
 
 ## Relevant Literature (Maybe)
@@ -23,8 +24,8 @@ Q. How precisely/accurately our model can classify motor behavior among - real, 
      * Simple KNN model is used as classifier.
      
 ## Formulate mathematical hypothesis
-     f(X_t) = \hat{y}_t
-     Loss fxn : binary crossentropy: 1/N \sum_{i=1}{n} y_t log(\hat{y_t}) + (1-y_t) log((1-\hat{y_t}))
+     Decoder model: $\theta(f(X_t)) = \hat{y}_t$
+     Loss fxn : binary crossentropy: `$1/N \sum_{i=1}{n} y_t log(\hat{y_t}) + (1-y_t) log((1-\hat{y_t}))$`
  
  < Using connected paper tool>    
 2. Performance of common spatial pattern under a smaller set of EEG electrodes in brain-computer interface on chronic stroke patients: A multi-session dataset study [ref](https://ieeexplore.ieee.org/document/6091566)
