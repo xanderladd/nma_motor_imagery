@@ -1,9 +1,19 @@
 ## Questions
 Q. How precisely/accurately our model can classify motor behavior among - real, imagery, hand and tongue movements from ECoG neural activity?
+
 (2. Can we use the model to show ***how*** electrodes/regions are more/less responsible for imagery v.s. real movement + hand v.s. tongue.
      - linear combinations of sites or non-linear (lasso) , MI, CMI
      - do these models explain Figure 2 (spatially)
      - If we train an autoregressive model we can do this for the temporal range before/during stim.)
+
+## Ingredients
+     - Input: X_t, 46 channels over 100hz for 3000 measurements. ~ 60 samples per subject.
+     - Filter: f
+          - PSD
+          - Moving average
+      - Feedback / preprocessing: T-score from GLM (why), PCA/ICA (what model)
+      - Output: y_t, label in the set [real,imaginary] & [hand,tongue].
+
 
 ## Relevant Literature (Maybe)
 
@@ -11,7 +21,10 @@ Q. How precisely/accurately our model can classify motor behavior among - real, 
      * Power spectral density is used as the features.
      * to handle redundancy : Fisher discriminant analysis (FDA) and common spatial patterns (CSP) < No backgorund on these>
      * Simple KNN model is used as classifier.
- 
+     
+## Formulate mathematical hypothesis
+     f(X_t) = \hat{y}_t
+     1/N \sum_{i=1}{n} y_t log(\hat{y_t}) + (1-y_t) log((1-\hat{y_t}))
  
  < Using connected paper tool>    
 2. Performance of common spatial pattern under a smaller set of EEG electrodes in brain-computer interface on chronic stroke patients: A multi-session dataset study [ref](https://ieeexplore.ieee.org/document/6091566)
