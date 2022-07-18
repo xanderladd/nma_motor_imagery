@@ -15,7 +15,7 @@ Q. How precisely/accurately our model can classify motor behavior among - real, 
      * Using the CSP -rank mechanism selecting the subset of electrodes. ( question can this be done in the short time frame)
      
 ## Ingredients
-- Input: $X_t \in \mathbf{R}^{46x3000}$, 46 channels over 100hz for 3000 measurements. ~ 60 samples per subject.
+- Input: $X_t \in \mathbf{R}^{46x3000}$, 46 channels over 1000hz for 3000 measurements. ~ 60 samples per subject.
 - Filter: $f$
      - PSD
      - Moving average
@@ -28,6 +28,7 @@ Q. How precisely/accurately our model can classify motor behavior among - real, 
 ## Formulate mathematical hypothesis
 - Decoder model: $\theta(f(X_t)) = \hat{y}_t$
  - Loss fxn : binary crossentropy: $\frac{1}{N} \sum_{i=1}{n} y_t log(\hat{y_t}) + (1-y_t) log((1-\hat{y_t}))$
+ - Null Hypothesis H(0): accuracy < 80%
  
 
 ## Roadmap
