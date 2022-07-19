@@ -1,3 +1,4 @@
 *.pkl
 *.npz
 plots/*
+*.code-workspace
