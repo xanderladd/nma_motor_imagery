@@ -118,7 +118,7 @@ def analyze_signal_times(signal, times,  ext=""):
     ax = fig.gca()
     # Plot a segment of the extracted time series data
     plot_time_series(times, signal, ax=ax)
-    fig.savefig(f'plotstime_series_plot{ext}.png',facecolor='white', bbox_inches='tight')
+    fig.savefig(f'plots/time_series_plot{ext}.png',facecolor='white', bbox_inches='tight')
     plt.close(fig)
 
 def analyze_freqs_and_powers(freqs, powers, ext=""):
