@@ -118,18 +118,24 @@ def analyze_signal_times(signal, times,  ext=""):
     ax = fig.gca()
     # Plot a segment of the extracted time series data
     plot_time_series(times, signal, ax=ax)
-    fig.savefig(f'plots/time_series_plot{ext}.png',facecolor='white', bbox_inches='tight')
+    fig.savefig(f'plotstime_series_plot{ext}.png',facecolor='white', bbox_inches='tight')
     plt.close(fig)
 
 def analyze_freqs_and_powers(freqs, powers, ext=""):
     # Check where the peak power is
     peak_cf = freqs[np.argmax(powers)]
+
     # Plot the power spectra, and note the peak power
     fig = plt.figure()
     ax = fig.gca()
     plot_power_spectra(freqs, powers, ax=ax)
     ax.plot(freqs[np.argmax(powers)], np.max(powers), '.r', ms=12)
-    ax.yaxis.set_minor_formatter(mticker.ScalarFormatter())
+    #import pdb; pdb.set_trace()
+    # x_index_of_peak = x[y_av.index(max_y)]
+    plt.vlines(freqs[np.argmax(powers)], 0,np.max(powers) , linestyle="dashed")
+    plt.hlines(np.max(powers), 0, freqs[np.argmax(powers)], linestyle="dashed")
+    ax.set_xticks([freqs[np.argmax(powers)]])
+    #ax.yaxis.set_minor_formatter(mticker.ScalarFormatter())
     fig.savefig(f'plots/power_spectra{ext}.png',facecolor='white', bbox_inches='tight')
     plt.close(fig)
 
