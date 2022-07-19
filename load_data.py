@@ -19,6 +19,8 @@ from neurodsp.plts import (plot_time_series, plot_power_spectra,
                            
 # For converting tal coords to MNI coords
 from nimare import utils
+import matplotlib.ticker as mticker
+
 
 def get_all_data(save_to='motor_imagery.npz'):
     fname = save_to
@@ -89,7 +91,7 @@ def mne_tutorial(raw):
     fig.savefig('plots/power_spectra_tutorial.png',facecolor='white', bbox_inches='tight')
     plt.close(fig)
 
-def raw_to_signal(raw, t_start, t_stop, channels=[0]):
+def raw_to_signal(raw, t_start, t_stop, channels=[0], units='uV'):
     """
     convert from MNE to signal from NeuroDSP for a specific chunk
     """
@@ -97,7 +99,8 @@ def raw_to_signal(raw, t_start, t_stop, channels=[0]):
     channels = np.array(channels, dtype=str)
     # Grab the sampling rate from the data
     # Extract an example channel to explore
-    sig, times = raw.get_data(mne.pick_channels(raw.ch_names, channels), start=t_start, stop=t_stop, return_times=True)
+    sig, times = raw.get_data(mne.pick_channels(raw.ch_names, channels), start=t_start, \
+                             stop=t_stop, units=units, return_times=True)
     sig = np.squeeze(sig)
     return sig, times
 
@@ -126,6 +129,7 @@ def analyze_freqs_and_powers(freqs, powers, ext=""):
     ax = fig.gca()
     plot_power_spectra(freqs, powers, ax=ax)
     ax.plot(freqs[np.argmax(powers)], np.max(powers), '.r', ms=12)
+    ax.yaxis.set_minor_formatter(mticker.ScalarFormatter())
     fig.savefig(f'plots/power_spectra{ext}.png',facecolor='white', bbox_inches='tight')
     plt.close(fig)
 
@@ -159,8 +163,7 @@ def get_raw(subject_data):
     sampling_freq = subject_data['srate']  # in Hertz
     info = mne.create_info(n_channels, sfreq=sampling_freq, ch_types='ecog')
     # initialise mne raw data struct
-    print("\n WARNING: using microvolts instead of volts \n ")
-    data_uv = (subject_data['scale_uv'] *  subject_data['V'].astype('float32'))#/10**6
+    data_uv = (subject_data['scale_uv'] *  subject_data['V'].astype('float32'))/10**6
     data = data_uv.T
     raw = mne.io.RawArray(data, info)
     # create event array with [onset, duration, trial_type]
@@ -196,8 +199,8 @@ def get_mean_evokeds(epochs):
 if __name__ == "__main__":
 
     # NOTE: these are only from the tutorial
-    mne_data = get_mne_data()
-    mne_tutorial(mne_data)
+    # mne_data = get_mne_data()
+    # mne_tutorial(mne_data)
 
     # Data from NMA
     ECoG_data =  get_all_data()
@@ -206,6 +209,7 @@ if __name__ == "__main__":
 
     # convert to MNE data format
     raw = get_raw(subject_data)
+
     # pull out window params (arbitary)
     fs = raw.info['sfreq']
     t_start = 20000
