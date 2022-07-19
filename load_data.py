@@ -95,14 +95,28 @@ def raw_to_signal(raw, t_start, t_stop, channels=[0], units='uV'):
     """
     convert from MNE to signal from NeuroDSP for a specific chunk
     """
-    if len(channels) > 1: raise NotImplementedError
     channels = np.array(channels, dtype=str)
     # Grab the sampling rate from the data
     # Extract an example channel to explore
     sig, times = raw.get_data(mne.pick_channels(raw.ch_names, channels), start=t_start, \
                              stop=t_stop, units=units, return_times=True)
     sig = np.squeeze(sig)
+    sig = sig.reshape(-1, len(channels)) # reshape signal to be timesteps x channels
     return sig, times
+
+def power_spec_from_signals(sigs, sample_freq, spectrum_range=[3,30]):
+    """
+    wrapper around power_spec_from_signal to handle multidimensional data
+    """
+    all_freqs, all_powers = [] , []
+    if len(sigs.shape) < 2 or sigs.shape[1] > 1:
+        for sig_idx in range(sigs.shape[1]):
+            curr_freqs, curr_powers = power_spec_from_signal(sigs[:,sig_idx], sample_freq, spectrum_range=spectrum_range)
+            all_freqs.append(curr_freqs), all_powers.append(curr_powers)
+        all_freqs, all_powers = np.stack(all_freqs).T, np.stack(all_powers).T
+    else:
+        all_freqs, all_powers = power_spec_from_signal(sigs, sample_freq, spectrum_range=spectrum_range)
+    return  all_freqs, all_powers
 
 def power_spec_from_signal(sig, sample_freq, spectrum_range=[3,30]):
     # spectrum range frequency is in Hz units
@@ -123,7 +137,7 @@ def analyze_signal_times(signal, times,  ext=""):
 
 def analyze_freqs_and_powers(freqs, powers, ext=""):
     # Check where the peak power is
-    peak_cf = freqs[np.argmax(powers)]
+    peak_cf = np.diag(freqs[np.argmax(powers,axis=0)])
     # Plot the power spectra, and note the peak power
     fig = plt.figure()
     ax = fig.gca()
@@ -216,11 +230,13 @@ if __name__ == "__main__":
     t_stop = int(t_start + (10 * fs)) 
     # convert to NeuroDSP signal
     signal, times = raw_to_signal(raw, t_start, t_stop, channels=[0]) # maybe not pull chunks out here
+
+    # signal, times = raw_to_signal(raw, t_start, t_stop, channels=[0,1,3]) # maybe not pull chunks out here
     analyze_signal_times(signal, times)
 
     # select PSD 
-    hfb_freqs, hfb_powers = power_spec_from_signal(signal, raw.info['sfreq'],spectrum_range=[76,100])
-    lfb_freqs, lfb_powers = power_spec_from_signal(signal, raw.info['sfreq'],spectrum_range=[8,32])
+    hfb_freqs, hfb_powers = power_spec_from_signals(signal, raw.info['sfreq'],spectrum_range=[76,100])
+    lfb_freqs, lfb_powers = power_spec_from_signals(signal, raw.info['sfreq'],spectrum_range=[8,32])
 
     analyze_freqs_and_powers(hfb_freqs, hfb_powers, ext='_hfb')
     analyze_freqs_and_powers(lfb_freqs, lfb_powers, ext='_lfb')
