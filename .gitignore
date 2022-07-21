@@ -1,4 +1,6 @@
 *.pkl
 *.npz
 plots/*
+*.png
+**__pycache__**
 *.code-workspace

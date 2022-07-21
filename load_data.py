@@ -6,8 +6,13 @@ import matplotlib.pyplot as plt
 import mne
 from mne import io
 from mne.datasets import sample
-from mne.viz import plot_topomap
+from mne.viz import plot_topomap   
+# For converting tal coords to MNI coords
+from nimare import utils
+import matplotlib.ticker as mticker
 
+
+# tutorial use only
 # Import some NeuroDSP functions to use with MNE
 from neurodsp.spectral import compute_spectrum, trim_spectrum
 from neurodsp.burst import detect_bursts_dual_threshold
@@ -16,10 +21,6 @@ from neurodsp.rhythm import compute_lagged_coherence
 # Import NeuroDSP plotting functions
 from neurodsp.plts import (plot_time_series, plot_power_spectra,
                            plot_bursts, plot_lagged_coherence)
-                           
-# For converting tal coords to MNI coords
-from nimare import utils
-import matplotlib.ticker as mticker
 
 
 def get_all_data(save_to='motor_imagery.npz'):
@@ -74,7 +75,7 @@ def mne_tutorial(raw):
     plot_time_series(times, sig, ax=ax)
     fig.savefig('plots/time_series_plot_tutorial.png',facecolor='white', bbox_inches='tight')
     plt.close(fig)
-
+    import pdb; pdb.set_trace()
     # Calculate the power spectrum, using median Welch's & extract a frequency range of interest
     freqs, powers = compute_spectrum(sig, fs, method='welch', avg_type='median')
     freqs, powers = trim_spectrum(freqs, powers, [3, 30])
@@ -91,53 +92,22 @@ def mne_tutorial(raw):
     fig.savefig('plots/power_spectra_tutorial.png',facecolor='white', bbox_inches='tight')
     plt.close(fig)
 
-def raw_to_signal(raw, t_start, t_stop, channels=[0], units='uV'):
+def raw_to_signal(raw, t_start=None, t_stop=None, channels=[0], units='uV'):
     """
     convert from MNE to signal from NeuroDSP for a specific chunk
     """
-    if len(channels) > 1: raise NotImplementedError
     channels = np.array(channels, dtype=str)
     # Grab the sampling rate from the data
     # Extract an example channel to explore
-    sig, times = raw.get_data(mne.pick_channels(raw.ch_names, channels), start=t_start, \
-                             stop=t_stop, units=units, return_times=True)
+    if type(raw) == mne.epochs.Epochs:
+        sig, times = raw.get_data(mne.pick_channels(raw.ch_names, channels), units=units), raw.times
+    else:
+        sig, times = raw.get_data(mne.pick_channels(raw.ch_names, channels), start=t_start, \
+                                stop=t_stop, units=units, return_times=True)
     sig = np.squeeze(sig)
+    sig = sig.reshape(-1, len(channels)) # reshape signal to be timesteps x channels
     return sig, times
 
-def power_spec_from_signal(sig, sample_freq, spectrum_range=[3,30]):
-    # spectrum range frequency is in Hz units
-    assert len(spectrum_range) == 2, 'spectrum range must be a 2 elem list'
-    # Calculate the power spectrum, using median Welch's & extract a frequency range of interest
-    freqs, powers = compute_spectrum(sig, sample_freq, method='welch', avg_type='median')
-    freqs, powers = trim_spectrum(freqs, powers, spectrum_range)
-    return freqs, powers
-
-def analyze_signal_times(signal, times,  ext=""):
-    # plot time series
-    fig = plt.figure(figsize=(8,3))
-    ax = fig.gca()
-    # Plot a segment of the extracted time series data
-    plot_time_series(times, signal, ax=ax)
-    fig.savefig(f'plots/time_series_plot{ext}.png',facecolor='white', bbox_inches='tight')
-    plt.close(fig)
-
-def analyze_freqs_and_powers(freqs, powers, ext=""):
-    # Check where the peak power is
-    peak_cf = freqs[np.argmax(powers)]
-
-    # Plot the power spectra, and note the peak power
-    fig = plt.figure()
-    ax = fig.gca()
-    plot_power_spectra(freqs, powers, ax=ax)
-    ax.plot(freqs[np.argmax(powers)], np.max(powers), '.r', ms=12)
-    #import pdb; pdb.set_trace()
-    # x_index_of_peak = x[y_av.index(max_y)]
-    plt.vlines(freqs[np.argmax(powers)], 0,np.max(powers) , linestyle="dashed")
-    plt.hlines(np.max(powers), 0, freqs[np.argmax(powers)], linestyle="dashed")
-    ax.set_xticks([freqs[np.argmax(powers)]])
-    #ax.yaxis.set_minor_formatter(mticker.ScalarFormatter())
-    fig.savefig(f'plots/power_spectra{ext}.png',facecolor='white', bbox_inches='tight')
-    plt.close(fig)
 
 def get_events(subject_data):
 
@@ -182,12 +152,13 @@ def get_raw(subject_data):
 
     return raw
 
-def get_epochs(subject_data, event_ids):
+def get_epochs(subject_data, event_ids,load=False):
 
     raw = get_raw(subject_data)
     event = get_events(subject_data)
     epoch = mne.Epochs(raw, event, event_ids, baseline=None, detrend=None, tmin=0, tmax=3)
-    
+    if load:
+        epoch = epoch.load_data()
     return epoch
 
 def get_mean_evokeds(epochs):
@@ -205,32 +176,15 @@ def get_mean_evokeds(epochs):
 if __name__ == "__main__":
 
     # NOTE: these are only from the tutorial
-    # mne_data = get_mne_data()
-    # mne_tutorial(mne_data)
+    mne_data = get_mne_data()
+    mne_tutorial(mne_data)
 
     # Data from NMA
     ECoG_data =  get_all_data()
     event_ids = dict(rest=10, tongue=11, hand=12)
     subject_data = get_subject_data(ECoG_data, 0, 0)
-
     # convert to MNE data format
     raw = get_raw(subject_data)
-
-    # pull out window params (arbitary)
-    fs = raw.info['sfreq']
-    t_start = 20000
-    t_stop = int(t_start + (10 * fs)) 
-    # convert to NeuroDSP signal
-    signal, times = raw_to_signal(raw, t_start, t_stop, channels=[0]) # maybe not pull chunks out here
-    analyze_signal_times(signal, times)
-
-    # select PSD 
-    hfb_freqs, hfb_powers = power_spec_from_signal(signal, raw.info['sfreq'],spectrum_range=[76,100])
-    lfb_freqs, lfb_powers = power_spec_from_signal(signal, raw.info['sfreq'],spectrum_range=[8,32])
-
-    analyze_freqs_and_powers(hfb_freqs, hfb_powers, ext='_hfb')
-    analyze_freqs_and_powers(lfb_freqs, lfb_powers, ext='_lfb')
-
-
+    # use epochs instead
     epochs = get_epochs(subject_data, event_ids)
-    evokeds = get_mean_evokeds(epochs)
+    #evokeds = get_mean_evokeds(epochs)
