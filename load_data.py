@@ -108,6 +108,7 @@ def raw_to_signal(raw, t_start=None, t_stop=None, channels=[0], units='uV'):
     sig = sig.reshape(-1, len(channels)) # reshape signal to be timesteps x channels
     return sig, times
 
+
 def get_events(subject_data):
 
     # create event array with [onset, duration, trial_type]
@@ -138,7 +139,7 @@ def get_raw(subject_data):
     sampling_freq = subject_data['srate']  # in Hertz
     info = mne.create_info(n_channels, sfreq=sampling_freq, ch_types='ecog')
     # initialise mne raw data struct
-    data_uv = (subject_data['scale_uv'] *  subject_data['V'].astype('float32'))/10**6
+    data_uv = (subject_data['scale_uv'] * subject_data['V'].astype('float32'))/10**6
     data = data_uv.T
     raw = mne.io.RawArray(data, info)
     # create event array with [onset, duration, trial_type]
