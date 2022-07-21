@@ -98,8 +98,11 @@ def raw_to_signal(raw, t_start, t_stop, channels=[0], units='uV'):
     channels = np.array(channels, dtype=str)
     # Grab the sampling rate from the data
     # Extract an example channel to explore
-    sig, times = raw.get_data(mne.pick_channels(raw.ch_names, channels), start=t_start, \
-                             stop=t_stop, units=units, return_times=True)
+    if type(raw) == mne.epochs.Epochs:
+        sig, times = raw.get_data(mne.pick_channels(raw.ch_names, channels), units=units), raw.times
+    else:
+        sig, times = raw.get_data(mne.pick_channels(raw.ch_names, channels), start=t_start, \
+                                stop=t_stop, units=units, return_times=True)
     sig = np.squeeze(sig)
     sig = sig.reshape(-1, len(channels)) # reshape signal to be timesteps x channels
     return sig, times
@@ -115,7 +118,8 @@ def power_spec_from_signals(sigs, sample_freq, spectrum_range=[3,30]):
             all_freqs.append(curr_freqs), all_powers.append(curr_powers)
         all_freqs, all_powers = np.stack(all_freqs).T, np.stack(all_powers).T
     else:
-        all_freqs, all_powers = power_spec_from_signal(sigs, sample_freq, spectrum_range=spectrum_range)
+        all_freqs, all_powers = power_spec_from_signal(sigs[:,0], sample_freq, spectrum_range=spectrum_range)
+        all_freqs, all_powers =  all_freqs.reshape(-1,1), all_powers.reshape(-1,1)
     return  all_freqs, all_powers
 
 def power_spec_from_signal(sig, sample_freq, spectrum_range=[3,30]):
@@ -142,7 +146,7 @@ def analyze_freqs_and_powers(freqs, powers, ext=""):
     fig = plt.figure()
     ax = fig.gca()
     plot_power_spectra(freqs, powers, ax=ax)
-    ax.plot(freqs[np.argmax(powers)], np.max(powers), '.r', ms=12)
+    ax.plot(np.diag(freqs[np.argmax(powers,axis=0)]), np.max(powers, axis=0), '.r', ms=12)
     ax.yaxis.set_minor_formatter(mticker.ScalarFormatter())
     fig.savefig(f'plots/power_spectra{ext}.png',facecolor='white', bbox_inches='tight')
     plt.close(fig)
@@ -221,26 +225,31 @@ if __name__ == "__main__":
     event_ids = dict(rest=10, tongue=11, hand=12)
     subject_data = get_subject_data(ECoG_data, 0, 0)
 
+
     # convert to MNE data format
     raw = get_raw(subject_data)
-
+    # use epochs instead
+    epochs = get_epochs(subject_data, event_ids)
+    raw = epochs[0]
     # pull out window params (arbitary)
     fs = raw.info['sfreq']
     t_start = 20000
     t_stop = int(t_start + (10 * fs)) 
     # convert to NeuroDSP signal
-    signal, times = raw_to_signal(raw, t_start, t_stop, channels=[0]) # maybe not pull chunks out here
-
-    # signal, times = raw_to_signal(raw, t_start, t_stop, channels=[0,1,3]) # maybe not pull chunks out here
+    # one channel
+    # signal, times = raw_to_signal(raw, t_start, t_stop, channels=[0]) # maybe not pull chunks out here
+    # multichannel
+    signal, times = raw_to_signal(raw, t_start, t_stop, channels=[1,10,30]) # maybe not pull chunks out here
     analyze_signal_times(signal, times)
 
     # select PSD 
     hfb_freqs, hfb_powers = power_spec_from_signals(signal, raw.info['sfreq'],spectrum_range=[76,100])
     lfb_freqs, lfb_powers = power_spec_from_signals(signal, raw.info['sfreq'],spectrum_range=[8,32])
+    freqs, powers = power_spec_from_signals(signal, raw.info['sfreq'],spectrum_range=[0,520])
 
     analyze_freqs_and_powers(hfb_freqs, hfb_powers, ext='_hfb')
     analyze_freqs_and_powers(lfb_freqs, lfb_powers, ext='_lfb')
-
-
-    epochs = get_epochs(subject_data, event_ids)
+    analyze_freqs_and_powers(freqs, powers, ext='_all')
+    plt.plot(freqs,powers)
+    plt.yscale('log')
     evokeds = get_mean_evokeds(epochs)
