@@ -2,3 +2,4 @@
 *.npz
 plots/*
 *.png
+**__pycache__**
