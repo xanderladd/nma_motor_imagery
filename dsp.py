@@ -1,5 +1,5 @@
 # Import key functions to handle data
-from load_data import get_all_data, get_subject_data, get_epochs, raw_to_signal
+from load_data import get_all_data, get_subject_data, get_epochs, raw_to_signal, get_raw, pickle_dataset
 # Import some NeuroDSP functions to use with MNE
 from neurodsp.spectral import compute_spectrum, trim_spectrum
 from neurodsp.burst import detect_bursts_dual_threshold
@@ -12,12 +12,9 @@ from neurodsp.plts import (plot_time_series, plot_power_spectra,
 import numpy as np
 import copy
 import pickle
-
-# NOTE: can move these to utils at some point
-def pickle_dataset(hfb_samples,lfb_samples, labels):
-    res = {'hfb_samples': hfb_samples, 'lfb_samples':  lfb_samples, 'labels': labels}
-    with open('psd_data.pkl','wb') as f:
-        pickle.dump(res, f)
+import matplotlib.pyplot as plt
+import mne
+import os
 
 
 def power_spec_from_signals(sigs, sample_freq, spectrum_range=[3,30]):
@@ -39,7 +36,7 @@ def power_spec_from_signal(sig, sample_freq, spectrum_range=[3,30]):
     # spectrum range frequency is in Hz units
     assert len(spectrum_range) == 2, 'spectrum range must be a 2 elem list'
     # Calculate the power spectrum, using median Welch's & extract a frequency range of interest
-    freqs, powers = compute_spectrum(sig, sample_freq, method='welch', avg_type='median')
+    freqs, powers = compute_spectrum(sig, sample_freq, method='welch', avg_type='median', nperseg=.15)
     freqs, powers = trim_spectrum(freqs, powers, spectrum_range)
     return freqs, powers
 
@@ -76,59 +73,120 @@ def segment_by_window(epoch,window_size=.150):
     [epoch_list.append(copy.deepcopy(epoch).crop(start, stop)) for start, stop in zip(start_times,stop_times)]
     return epoch_list
 
-def epoch_to_PSD_samples(epoch, window_size=.150, channels=np.arange(46)):
-    epoch_list = segment_by_window(epoch,window_size=window_size)
-    print("WARNING: taking the median over PSD freqs instead of integrating")
-    hfb_samples, lfb_samples = [], []
-    for e in epoch_list: # maybe not pull chunks out here
-        signal, times  = raw_to_signal(e, channels=channels) 
-        hfb_freqs, hfb_powers = power_spec_from_signals(signal, e.info['sfreq'],spectrum_range=[76,100])
-        lfb_freqs, lfb_powers = power_spec_from_signals(signal, e.info['sfreq'],spectrum_range=[8,32])
-        hfb_samples.append(np.median(hfb_powers,axis=0))
-        lfb_samples.append(np.median(lfb_powers,axis=0))
-    return hfb_samples, lfb_samples
+# def epoch_to_PSD_samples(epoch, window_size=.150, channels=np.arange(46)):
+#     epoch_list = segment_by_window(epoch,window_size=window_size)
+#     # print("WARNING: taking the median over PSD freqs instead of integrating")
+#     hfb_samples, lfb_samples = [], []
+#     for e in epoch_list: # maybe not pull chunks out here
+#         signal, times  = raw_to_signal(e, channels=channels) 
+#         hfb_freqs, hfb_powers = power_spec_from_signals(signal, e.info['sfreq'],spectrum_range=[76,100])
+#         lfb_freqs, lfb_powers = power_spec_from_signals(signal, e.info['sfreq'],spectrum_range=[8,32])
+#         hfb_samples.append(np.median(hfb_powers,axis=0))
+#         lfb_samples.append(np.median(lfb_powers,axis=0))
+#     return hfb_samples, lfb_samples
+
+def epochs_to_PSD_samples(epochs):
+    # print("WARNING: taking the median over PSD freqs instead of integrating")
+    hfb_samples, lfb_samples, all_samples, labels = [], [], [], []
+    for e_idx in range(len(epochs)): # maybe not pull chunks out here
+        # signal, times  = raw_to_signal(e, channels=channels) 
+        hfb_samples.append(mne.time_frequency.psd_welch(epochs[e_idx], fmin=76, fmax=100, verbose=False))
+        lfb_samples.append(mne.time_frequency.psd_welch(epochs[e_idx], fmin=8, fmax=32, verbose=False)) 
+        all_samples.append(mne.time_frequency.psd_welch(epochs[e_idx], fmin=0, fmax=150, verbose=False))
+        labels.append(list(epochs[e_idx].event_id.keys())[0])
+    return np.array(hfb_samples), np.array(lfb_samples), np.array(all_samples), np.array(labels)
+
+def epoch_windows_to_PSD_samples(epochs, w_size, fft_size):
+    # print("WARNING: taking the median over PSD freqs instead of integrating")
+    hfb_samples, lfb_samples, all_samples, labels = [], [], [], []
+    for e_idx in range(len(epochs)): # maybe not pull chunks out here
+        # signal, times  = raw_to_signal(e, channels=channels) 
+        for w_end in np.arange(epochs[e_idx].tmin+w_size, epochs[e_idx].tmax, w_size):
+            w_start = w_end - w_size
+            assert w_start >= 0, "window size cannot be bigger than epoch"
+            hfb_samples.append(mne.time_frequency.psd_welch(epochs[e_idx], fmin=76, fmax=100, tmin=w_start, tmax=w_end, n_fft=fft_size, verbose=False ))
+            lfb_samples.append(mne.time_frequency.psd_welch(epochs[e_idx], fmin=8, fmax=32, tmin=w_start, tmax=w_end, n_fft=fft_size, verbose=False)) 
+            all_samples.append(mne.time_frequency.psd_welch(epochs[e_idx], fmin=0, fmax=150, tmin=w_start, tmax=w_end, n_fft=fft_size, verbose=False))
+            labels.append(list(epochs[e_idx].event_id.keys())[0])
+            # import pdb; pdb.set_trace()
+    return np.array(hfb_samples), np.array(lfb_samples), np.array(all_samples), np.array(labels)
+
+
+def reduce_samples(samples):
+    """
+    samples is shape 119 x 2 ... 119 trials x (power, freqs)
+    """
+    # annoying reshape stuff.. splits power and freqs and then fixes awkward array dims
+    psd_samples, freq_samples = samples[:,0],  samples[:,1]
+    psd_samples, freq_samples = np.stack(psd_samples)[:,0,:,:], np.stack(freq_samples)
+    # do median and integral over freq band
+    assert len( np.unique(freq_samples,axis=0)) == 1, 'sampling freq. is not uniform'
+    integrated_psd_samples = np.trapz(psd_samples,freq_samples[0])
+    # print(freq_samples[0])
+    median_psd_samples = np.median(psd_samples,axis=1)
+    return integrated_psd_samples, median_psd_samples, freq_samples[0]
 
 if __name__ == "__main__":
 
     event_ids = dict(rest=10, tongue=11, hand=12)
     ECoG_data =  get_all_data()
-    subject_data = get_subject_data(ECoG_data, 0, 0)
-    # get MNE epochs
-    epochs = get_epochs(subject_data, event_ids, load=True)
-    hfb_samples, lfb_samples, labels = [], [], np.array([])
-    for epoch_idx in range(len(epochs)):
-        hfb, lfb = epoch_to_PSD_samples(epochs[epoch_idx], window_size=1)
-        hfb_samples += hfb
-        lfb_samples += lfb
-        labels = np.append(labels,np.repeat(list(epochs[epoch_idx].event_id.keys()), len(hfb_samples)))
+    n_subjects = len(ECoG_data)
+    exps = ['mvmt','imagery']
+    for exp_idx, exp in enumerate(exps):
+        for sbj_idx in range(n_subjects):
+            subject_data = get_subject_data(ECoG_data, sbj_idx, exp_idx)
+            # get MNE epochs
+            epochs = get_epochs(subject_data, event_ids, load=True)
 
-    hfb_samples = np.vstack(hfb_samples)
-    lfb_samples = np.vstack(lfb_samples)
+            ### FULL 3S Decomp  ###
+            hfb_samples, lfb_samples, all_samples, labels =  epochs_to_PSD_samples(epochs)
+            # would change labels
+            # labels = np.array([exp + '_' + label for label in labels])
 
-    pickle_dataset(hfb_samples,lfb_samples, labels)
+            hfb_integ_psd_samples, hfb_median_psd_samples, hfb_sampled_freqs = reduce_samples(hfb_samples)
+            lfb_integ_psd_samples, lfb_median_psd_samples, lfb_sampled_freqs = reduce_samples(lfb_samples)
+            all_integ_psd_samples, all_median_psd_samples, all_sampled_freqs = reduce_samples(all_samples)
+
+            pickle_dataset(hfb_integ_psd_samples, hfb_median_psd_samples, hfb_sampled_freqs, labels, path=os.path.join('data',f'sbj_{sbj_idx}'), title=f'{exp}_hfb_3s')
+            pickle_dataset(lfb_integ_psd_samples, lfb_median_psd_samples, lfb_sampled_freqs,  labels, path=os.path.join('data',f'sbj_{sbj_idx}'), title=f'{exp}_lfb_3s')
+            pickle_dataset(all_integ_psd_samples, all_median_psd_samples, all_sampled_freqs, labels, path=os.path.join('data',f'sbj_{sbj_idx}'), title=f'{exp}_all_freq_3s')
+
+            ### 1S Decomp  ###
+            hfb_samples, lfb_samples, all_samples, labels  = epoch_windows_to_PSD_samples(epochs, w_size=1, fft_size=256) # window size in seconds
+
+            hfb_integ_psd_samples, hfb_median_psd_samples, hfb_sampled_freqs = reduce_samples(hfb_samples)
+            lfb_integ_psd_samples, lfb_median_psd_samples, lfb_sampled_freqs = reduce_samples(lfb_samples)
+            all_integ_psd_samples, all_median_psd_samples, all_sampled_freqs = reduce_samples(all_samples)
+
+            pickle_dataset(hfb_integ_psd_samples, hfb_median_psd_samples, hfb_sampled_freqs, labels, path=os.path.join('data',f'sbj_{sbj_idx}'), title=f'{exp}_hfb_1s')
+            pickle_dataset(lfb_integ_psd_samples, lfb_median_psd_samples, lfb_sampled_freqs,  labels, path=os.path.join('data',f'sbj_{sbj_idx}'), title=f'{exp}_lfb_1s')
+            pickle_dataset(all_integ_psd_samples, all_median_psd_samples, all_sampled_freqs, labels, path=os.path.join('data',f'sbj_{sbj_idx}'), title=f'{exp}_all_freq_1s')
+
+            ###  .5 s Decomp  ###
+            hfb_samples, lfb_samples, all_samples, labels  = epoch_windows_to_PSD_samples(epochs, w_size=.5, fft_size=256) # window size in seconds
+
+            hfb_integ_psd_samples, hfb_median_psd_samples, hfb_sampled_freqs = reduce_samples(hfb_samples)
+            lfb_integ_psd_samples, lfb_median_psd_samples, lfb_sampled_freqs = reduce_samples(lfb_samples)
+            all_integ_psd_samples, all_median_psd_samples, all_sampled_freqs = reduce_samples(all_samples)
+
+            pickle_dataset(hfb_integ_psd_samples, hfb_median_psd_samples, hfb_sampled_freqs, labels, path=os.path.join('data',f'sbj_{sbj_idx}'), title=f'{exp}_hfb_.5s')
+            pickle_dataset(lfb_integ_psd_samples, lfb_median_psd_samples, lfb_sampled_freqs,  labels, path=os.path.join('data',f'sbj_{sbj_idx}'), title=f'{exp}_lfb_.5s')
+            pickle_dataset(all_integ_psd_samples, all_median_psd_samples, all_sampled_freqs, labels, path=os.path.join('data',f'sbj_{sbj_idx}'), title=f'{exp}_all_freq_.5s')
 
 
-    # raw = epochs[0]
-    # # pull out window params (arbitary)
-    # fs = raw.info['sfreq']
-    # raw.crop(0,1)
-    # # single epoch
-    # import pdb; pdb.set_trace()
-    # signal, times = raw_to_signal(raw, channels=[1]) # maybe not pull chunks out here
+        # ###  .1 s Decomp  ###
+        # hfb_samples, lfb_samples, all_samples, labels  = epoch_windows_to_PSD_samples(epochs, w_size=.1, fft_size=20) # window size in seconds
 
-    # # analyze_signal_times(signal, times)
+        # hfb_integ_psd_samples, hfb_median_psd_samples, hfb_sampled_freqs = reduce_samples(hfb_samples)
+        # lfb_integ_psd_samples, lfb_median_psd_samples, lfb_sampled_freqs = reduce_samples(lfb_samples)
+        # all_integ_psd_samples, all_median_psd_samples, all_sampled_freqs = reduce_samples(all_samples)
 
-    # # select PSD 
-    # hfb_freqs, hfb_powers = power_spec_from_signals(signal, raw.info['sfreq'],spectrum_range=[76,100])
-    # lfb_freqs, lfb_powers = power_spec_from_signals(signal, raw.info['sfreq'],spectrum_range=[8,32])
-    # freqs, powers = power_spec_from_signals(signal, raw.info['sfreq'],spectrum_range=[0,520])
-
-    # analyze_freqs_and_powers(hfb_freqs, hfb_powers, ext='_hfb')
-    # analyze_freqs_and_powers(lfb_freqs, lfb_powers, ext='_lfb')
-    # analyze_freqs_and_powers(freqs, powers, ext='_all')
-    # plt.plot(freqs,powers)
+        # pickle_dataset(hfb_integ_psd_samples, hfb_median_psd_samples, hfb_sampled_freqs, labels, title='hfb_.1s')
+        # pickle_dataset(lfb_integ_psd_samples, lfb_median_psd_samples, lfb_sampled_freqs,  labels, title='lfb_.1s')
+        # pickle_dataset(all_integ_psd_samples, all_median_psd_samples, all_sampled_freqs, labels, title='all_freq_.1s')
 
 
+        # 10th trial where we have 46 electrodes X 39 frequencies (increase FFT window in mmne.time_frequency)
+        # data['all_samples'][10][0].shape # 46, 39
 
-    
-    
+        
