@@ -4,3 +4,4 @@ plots/*
 *.png
 **__pycache__**
 data/*
+*.code-workspace

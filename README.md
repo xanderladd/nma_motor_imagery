@@ -15,7 +15,7 @@ Q. How precisely/accurately our model can classify motor behavior among - real, 
      * Using the CSP -rank mechanism selecting the subset of electrodes. ( question can this be done in the short time frame)
      
 ## Ingredients
-- Input: $X_t \in \mathbf{R}^{46x3000}$, 46 channels over 100hz for 3000 measurements. ~ 60 samples per subject.
+- Input: $X_t \in \mathbf{R}^{46x3000}$, 46 channels over 1000hz for 3000 measurements. ~ 60 samples per subject.
 - Filter: $f$
      - PSD
      - Moving average
@@ -28,6 +28,7 @@ Q. How precisely/accurately our model can classify motor behavior among - real, 
 ## Formulate mathematical hypothesis
 - Decoder model: $\theta(f(X_t)) = \hat{y}_t$
  - Loss fxn : binary crossentropy: $\frac{1}{N} \sum_{i=1}{n} y_t log(\hat{y_t}) + (1-y_t) log((1-\hat{y_t}))$
+ - Null Hypothesis H(0): accuracy < 80%
  
 
 ## Roadmap
@@ -39,7 +40,7 @@ Q. How precisely/accurately our model can classify motor behavior among - real, 
          - inspiration (Mandar)
 
 #### Towards answering some questions
-2. GLM analysis as done in fMRI? [ref](https://nilearn-doc-dev.github.io/auto_examples/02_decoding/plot_haxby_glm_decoding.html)
+2. GLM analysis as done in fMRI? [primer on glm](https://nilearn.github.io/stable/glm/glm_intro.html), [glm step-by-step](https://nilearn.github.io/stable/auto_examples/plot_single_subject_single_run.html#sphx-glr-auto-examples-plot-single-subject-single-run-py), [full example - with decoding](https://nilearn-doc-dev.github.io/auto_examples/02_decoding/plot_haxby_glm_decoding.html)
     - y_i = c * X * b_i
     - y_i is the signal recorded from electrode `i` of shape (`t_points`, )
     - X is design matrix of shape (`t_points`, `event_ids`), ideally should be the signal from data gloves
