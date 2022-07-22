@@ -10,8 +10,8 @@ from mne.viz import plot_topomap
 # For converting tal coords to MNI coords
 from nimare import utils
 import matplotlib.ticker as mticker
-
-
+import pickle
+import os
 # tutorial use only
 # Import some NeuroDSP functions to use with MNE
 from neurodsp.spectral import compute_spectrum, trim_spectrum
@@ -171,6 +171,18 @@ def get_mean_evokeds(epochs):
     return evokeds
 
 
+# NOTE: can move these to utils at some point
+def pickle_dataset(integ_psd, median_psd, sampled_freqs, labels, title='', path='data'):
+    res = {'integrated_psd': integ_psd, 'median_psd':  median_psd, 'sampled_freqs': sampled_freqs, 'labels': labels}
+    os.makedirs(path,exist_ok=True)
+    fname = os.path.join(path, f'{title}_data.pkl')
+    with open(fname,'wb') as f:
+        pickle.dump(res, f)
+
+def load_psd_dataset(title):
+    with open(f'data/{title}_data.pkl','rb') as f:
+        data = pickle.load(f)
+    return data
 
 if __name__ == "__main__":
 
