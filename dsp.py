@@ -12,6 +12,8 @@ from neurodsp.plts import (plot_time_series, plot_power_spectra,
 import numpy as np
 import copy
 import pickle
+import matplotlib.pyplot as plt
+import mne
 
 # NOTE: can move these to utils at some point
 def pickle_dataset(hfb_samples,lfb_samples, labels):
@@ -39,7 +41,7 @@ def power_spec_from_signal(sig, sample_freq, spectrum_range=[3,30]):
     # spectrum range frequency is in Hz units
     assert len(spectrum_range) == 2, 'spectrum range must be a 2 elem list'
     # Calculate the power spectrum, using median Welch's & extract a frequency range of interest
-    freqs, powers = compute_spectrum(sig, sample_freq, method='welch', avg_type='median')
+    freqs, powers = compute_spectrum(sig, sample_freq, method='welch', avg_type='median', nperseg=.15)
     freqs, powers = trim_spectrum(freqs, powers, spectrum_range)
     return freqs, powers
 
@@ -76,12 +78,26 @@ def segment_by_window(epoch,window_size=.150):
     [epoch_list.append(copy.deepcopy(epoch).crop(start, stop)) for start, stop in zip(start_times,stop_times)]
     return epoch_list
 
+# def epoch_to_PSD_samples(epoch, window_size=.150, channels=np.arange(46)):
+#     epoch_list = segment_by_window(epoch,window_size=window_size)
+#     # print("WARNING: taking the median over PSD freqs instead of integrating")
+#     hfb_samples, lfb_samples = [], []
+#     for e in epoch_list: # maybe not pull chunks out here
+#         signal, times  = raw_to_signal(e, channels=channels) 
+#         hfb_freqs, hfb_powers = power_spec_from_signals(signal, e.info['sfreq'],spectrum_range=[76,100])
+#         lfb_freqs, lfb_powers = power_spec_from_signals(signal, e.info['sfreq'],spectrum_range=[8,32])
+#         hfb_samples.append(np.median(hfb_powers,axis=0))
+#         lfb_samples.append(np.median(lfb_powers,axis=0))
+#     return hfb_samples, lfb_samples
+
 def epoch_to_PSD_samples(epoch, window_size=.150, channels=np.arange(46)):
     epoch_list = segment_by_window(epoch,window_size=window_size)
-    print("WARNING: taking the median over PSD freqs instead of integrating")
+    # print("WARNING: taking the median over PSD freqs instead of integrating")
     hfb_samples, lfb_samples = [], []
     for e in epoch_list: # maybe not pull chunks out here
-        signal, times  = raw_to_signal(e, channels=channels) 
+        # signal, times  = raw_to_signal(e, channels=channels) 
+        import pdb; pdb.set_trace()
+        mne.time_frequency.psd_welch()
         hfb_freqs, hfb_powers = power_spec_from_signals(signal, e.info['sfreq'],spectrum_range=[76,100])
         lfb_freqs, lfb_powers = power_spec_from_signals(signal, e.info['sfreq'],spectrum_range=[8,32])
         hfb_samples.append(np.median(hfb_powers,axis=0))
@@ -97,14 +113,13 @@ if __name__ == "__main__":
     epochs = get_epochs(subject_data, event_ids, load=True)
     hfb_samples, lfb_samples, labels = [], [], np.array([])
     for epoch_idx in range(len(epochs)):
-        hfb, lfb = epoch_to_PSD_samples(epochs[epoch_idx], window_size=1)
+        hfb, lfb = epoch_to_PSD_samples(epochs[epoch_idx], window_size=2.9)
         hfb_samples += hfb
         lfb_samples += lfb
-        labels = np.append(labels,np.repeat(list(epochs[epoch_idx].event_id.keys()), len(hfb_samples)))
-
+        labels = np.append(labels,np.repeat(list(epochs[epoch_idx].event_id.keys()), len(hfb)))
+    
     hfb_samples = np.vstack(hfb_samples)
     lfb_samples = np.vstack(lfb_samples)
-
     pickle_dataset(hfb_samples,lfb_samples, labels)
 
 
