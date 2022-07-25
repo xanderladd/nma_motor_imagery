@@ -14,14 +14,15 @@ import pickle
 import os
 # tutorial use only
 # Import some NeuroDSP functions to use with MNE
-from neurodsp.spectral import compute_spectrum, trim_spectrum
-from neurodsp.burst import detect_bursts_dual_threshold
-from neurodsp.rhythm import compute_lagged_coherence
+# from neurodsp.spectral import compute_spectrum, trim_spectrum
+# from neurodsp.burst import detect_bursts_dual_threshold
+# from neurodsp.rhythm import compute_lagged_coherence
 
-# Import NeuroDSP plotting functions
-from neurodsp.plts import (plot_time_series, plot_power_spectra,
-                           plot_bursts, plot_lagged_coherence)
+# # Import NeuroDSP plotting functions
+# from neurodsp.plts import (plot_time_series, plot_power_spectra,
+#                            plot_bursts, plot_lagged_coherence)
 
+import re
 
 def get_all_data(save_to='motor_imagery.npz'):
     fname = save_to
@@ -75,7 +76,6 @@ def mne_tutorial(raw):
     plot_time_series(times, sig, ax=ax)
     fig.savefig('plots/time_series_plot_tutorial.png',facecolor='white', bbox_inches='tight')
     plt.close(fig)
-    import pdb; pdb.set_trace()
     # Calculate the power spectrum, using median Welch's & extract a frequency range of interest
     freqs, powers = compute_spectrum(sig, fs, method='welch', avg_type='median')
     freqs, powers = trim_spectrum(freqs, powers, [3, 30])
@@ -180,10 +180,51 @@ def pickle_dataset(integ_psd, median_psd, sampled_freqs, labels, title='', path=
     with open(fname,'wb') as f:
         pickle.dump(res, f)
 
-def load_psd_dataset(title):
-    with open(f'data/{title}_data.pkl','rb') as f:
+def load_psd_dataset(title='', path='data'):
+    fname = os.path.join(path, f'{title}_data.pkl')
+    with open(fname,'rb') as f:
         data = pickle.load(f)
     return data
+
+def update_labels(labels,prefix):
+    return [prefix + label for label in labels]
+
+def subset_data_paths(subjects=[0], file_keys=['mvmt','3s','hfb']):
+    paths, titles = [], []
+    root_ignore = ['.gitignore','./data']
+    for root, dirs, files in os.walk("./data", topdown=False):
+        if (root in root_ignore): continue
+        print(root)
+        if not int(re.findall(r'\d+',root)[0]) in subjects: continue
+        for f in files:
+            skip_file = False
+            for key in file_keys:
+                if not key in f:
+                    skip_file = True
+            if not skip_file:
+                paths.append(root), titles.append(f.replace('_data.pkl',''))
+    return paths, titles
+
+def append_dataset(main_dataset={}, added_dataset={}):
+    if not added_dataset:
+        return main_dataset
+    if not main_dataset:
+        return added_dataset
+    for key in main_dataset:
+        main_dataset[key] = np.append(main_dataset[key], added_dataset[key])
+    return main_dataset
+
+def combine_datasets():
+    """
+    important NOTE : WIP a function that combines the pickles so we can test things over multiple subjects / conditons etc.
+    """
+    paths, titles = subset_data_paths(subjects=[0,1,3], file_keys=['mvmt','3s','hfb'])
+    import pdb; pdb.set_trace()
+    all_data = {}
+    for curr_path, curr_title in zip(paths, titles):
+        curr_data = load_psd_dataset(curr_path,curr_title)
+        all_data = append_dataset(all_data, curr_data)
+        
 
 if __name__ == "__main__":
 
