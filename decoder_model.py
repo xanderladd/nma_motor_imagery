@@ -12,7 +12,7 @@ import pandas as pd
 def filter_label(curr_data, label='rest'):
     # inds = np.where(curr_data['labels'] != label)[0]
     # inds = np.where(label in curr_data['labels'])[0]
-    inds = np.where(pd.Series(curr_data['labels']).str.contains(label).values)
+    inds = np.where(~pd.Series(curr_data['labels']).str.contains(label).values)
     curr_data['labels'] = curr_data['labels'][inds]
     curr_data['integrated_psd'] =  curr_data['integrated_psd'][inds]
     curr_data['median_psd'] =  curr_data['median_psd'][inds]
@@ -67,6 +67,7 @@ if __name__ == "__main__":
         # dict_keys(['integrated_psd', 'median_psd', 'sampled_freqs', 'labels'])
 
         # convert string labels into categorial ints
+        # print(curr_data['labels'])
         int_labels = LabelEncoder().fit_transform(curr_data['labels'])
     
         X, y = curr_data['integrated_psd'], int_labels
