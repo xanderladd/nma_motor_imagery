@@ -152,11 +152,14 @@ def get_raw(subject_data):
 
     return raw
 
-def get_epochs(subject_data, event_ids,load=False):
+def get_epochs(subject_data, event_ids, load=False, include_rest=False):
 
     raw = get_raw(subject_data)
     event = get_events(subject_data)
-    epoch = mne.Epochs(raw, event, event_ids, baseline=None, detrend=None, tmin=0, tmax=3)
+    if include_rest:
+        epoch = mne.Epochs(raw, event, event_ids, baseline=(-3,0), detrend=None, tmin=-3, tmax=3)
+    else:
+        epoch = mne.Epochs(raw, event, event_ids, baseline=None, detrend=None, tmin=0, tmax=3)
     if load:
         epoch = epoch.load_data()
     return epoch
