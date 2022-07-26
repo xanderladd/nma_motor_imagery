@@ -202,7 +202,13 @@ def subset_data_paths(subjects=[0], file_keys=['mvmt','3s','hfb']):
         for f in files:
             skip_file = False
             for key in file_keys:
-                if not key in f:
+                if '|' in key:
+                    skip_file = True
+                    split_keys = key.split('|')
+                    for k2 in split_keys:
+                        if k2 in f:
+                            skip_file = False
+                elif not key in f:
                     skip_file = True
             if not skip_file:
                 paths.append(root), titles.append(f.replace('_data.pkl',''))
@@ -214,7 +220,10 @@ def append_dataset(main_dataset={}, added_dataset={}):
     if not main_dataset:
         return added_dataset
     for key in main_dataset:
-        main_dataset[key] = np.append(main_dataset[key], added_dataset[key])
+        if len(np.array(main_dataset[key]).shape ) > 1:
+            main_dataset[key] = np.append(main_dataset[key], added_dataset[key], axis=0)
+        else:
+            main_dataset[key] = np.append(main_dataset[key], added_dataset[key])
     return main_dataset
 
 def combine_datasets():
@@ -222,7 +231,6 @@ def combine_datasets():
     important NOTE : WIP a function that combines the pickles so we can test things over multiple subjects / conditons etc.
     """
     paths, titles = subset_data_paths(subjects=[0,1,3], file_keys=['mvmt','3s','hfb'])
-    import pdb; pdb.set_trace()
     all_data = {}
     for curr_path, curr_title in zip(paths, titles):
         curr_data = load_psd_dataset(curr_path,curr_title)
