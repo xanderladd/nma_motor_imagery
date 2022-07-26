@@ -1,5 +1,8 @@
 # Discussions with John
 
+
+- 4 class classification should have confusion matrix
+
 ## W2D3 20th July
 * Feature extraction:
     - pick electrodes using GLM: trial-by-trial? or full-time course?

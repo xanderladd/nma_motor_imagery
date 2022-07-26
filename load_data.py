@@ -197,7 +197,6 @@ def subset_data_paths(subjects=[0], file_keys=['mvmt','3s','hfb']):
     root_ignore = ['.gitignore','./data']
     for root, dirs, files in os.walk("./data", topdown=False):
         if (root in root_ignore): continue
-        print(root)
         if not int(re.findall(r'\d+',root)[0]) in subjects: continue
         for f in files:
             skip_file = False
