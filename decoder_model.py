@@ -37,7 +37,7 @@ def combine_datasets(subjects=[0], file_keys=['mvmt|imagery','3s','hfb']):
     important NOTE : WIP a function that combines the pickles so we can test things over multiple subjects / conditons etc.
     MISSING: needs breakpoints for where the data was pasted together 
     """
-    paths, titles = subset_data_paths(subjects=[0], file_keys=file_keys)
+    paths, titles = subset_data_paths(subjects=subjects, file_keys=file_keys)    
     all_data = {}
     for curr_path, curr_title in zip(paths, titles):
         curr_data = load_psd_dataset(curr_title, curr_path)
@@ -52,8 +52,7 @@ if __name__ == "__main__":
     # load sbj 0
     for i in range(7):
         # multiclass option (WIP)
-        curr_data = combine_datasets(subjects=[0], file_keys=['mvmt|imagery','3s','hfb'])
-
+        curr_data = combine_datasets(subjects=[i], file_keys=['mvmt|imagery','3s','hfb'])
         # single class option
         # base_path = os.path.join('data',f'sbj_{i}')
         # title = 'mvmt_hfb_3s' # a lot of way to change this title to try different tasks
@@ -85,7 +84,7 @@ if __name__ == "__main__":
         # print out acc
         acc = (test_y == pred_y).sum() /  len(test_y)
         accs.append(acc)
-        print(f'%.3f labels predicted correctly for sbj {i}' % acc)
-        print(test_y, pred_y)
+        print(f'\n %.3f labels predicted correctly for sbj {i} \n' % acc)
+        # print(test_y, pred_y)
 
     print(f'\n \n mean acc: {np.mean(accs)}, std acc {np.std(accs)}')
