@@ -4,10 +4,19 @@ from nilearn import plotting
 from nimare import utils
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
+
 from sklearn import linear_model
 from sklearn.metrics import r2_score
+from sklearn.model_selection import train_test_split
+from sklearn.utils.class_weight import compute_class_weight
+
+from sklearn.preprocessing import LabelEncoder
+from sklearn import svm
+from sklearn import preprocessing
 
 import pandas as pd
+
+import os
 
 def get_mne_data(subject=0, session=0, epoch_with_rest=False):
     # Data from NMA
@@ -184,8 +193,8 @@ def run_glm(sub=0, sess=0, poisson=False, trial_by_trial=False):
                 X = X * contrast
                 print(X, contrast)
                 n_electrodes = y.shape[0]
-                theta = np.empty((n_electrodes, 4))
-                y_hat = np.empty_like(y)
+                theta_t = np.empty((n_electrodes, 4))
+                y_hat_t = np.empty_like(y)
                 r_square = np.empty(n_electrodes)
                 for elect in range(n_electrodes):
                     y_i = y[elect, :]
@@ -195,17 +204,17 @@ def run_glm(sub=0, sess=0, poisson=False, trial_by_trial=False):
                     y_hat_i, r_square_i = predict_y(model, X, y_i)
                     r_square[elect] = round(r_square_i, 3)
                     # store fitted parameters
-                    theta[elect, :] = theta_i
+                    theta_t[elect, :] = theta_i
                     # store predicted y
-                    y_hat[elect, :] = y_hat_i
+                    y_hat_t[elect, :] = y_hat_i
 
-                # compare prediction from fitted weights with actual y
-                plot_prediction(y, y_hat, sub, sess, just_prediction=False, trial=trial, save=True, show=False, condition=condition, r_square=r_square)
-                # plot the weights on an electrode
-                plot_theta(subject_data['locs'], theta, event_ids, X_event_ids, sub, sess, trial=trial, save=True, show=False, condition=condition)
+                # # compare prediction from fitted weights with actual y
+                # plot_prediction(y, y_hat, sub, sess, just_prediction=False, trial=trial, save=True, show=False, condition=condition, r_square=r_square)
+                # # plot the weights on an electrode
+                # plot_theta(subject_data['locs'], theta, event_ids, X_event_ids, sub, sess, trial=trial, save=True, show=False, condition=condition)
 
-                np.savetxt(f'data/theta_sub-{sub}_ses-{sess}_trial-{trial}_cond-{condition}.csv', theta, delimiter=",")
-                np.savetxt(f'data/yhat_sub-{sub}_ses-{sess}_trial-{trial}_cond-{condition}.csv', y_hat, delimiter=",")
+                # np.savetxt(f'data/theta_sub-{sub}_ses-{sess}_trial-{trial}_cond-{condition}.csv', theta, delimiter=",")
+                # np.savetxt(f'data/yhat_sub-{sub}_ses-{sess}_trial-{trial}_cond-{condition}.csv', y_hat, delimiter=",")
 
     else:
         X, X_event_ids = make_design_matrix(raw, events, event_ids)
@@ -238,6 +247,56 @@ def run_glm(sub=0, sess=0, poisson=False, trial_by_trial=False):
 
     return theta, y_hat
 
+def decode():
+
+    for glm in ['gaussian', 'gamma']:
+        data_path = f'data/{glm}'
+
+        files = os.listdir(data_path)
+
+        n_trials = len(files)
+
+        thetas = np.empty((46, int(n_trials)))
+
+        labels = []
+
+        for trial, file in enumerate(files):
+            info = file.split('.')[0].split('_')
+            cond = info[-1]
+            label = cond.split('-')[1]
+
+            labels.append(label)
+
+            theta = pd.read_csv(os.path.join(data_path, file), names=[0,1,2,3])
+
+            if label == 'tongue':
+                theta = theta.drop(columns=[0, 1, 3])
+            else:
+                theta = theta.drop(columns=[0, 1, 2])
+
+            theta = theta.to_numpy()
+
+            thetas[:, trial] = theta[:, 0]
+
+        X, y = thetas.T, labels
+
+        scaler = preprocessing.StandardScaler().fit(X)
+
+        X_scaled = scaler.transform(X)
+
+        train_X, test_X, train_y, test_y = train_test_split(X_scaled, y, test_size=.2, shuffle=True)
+
+        model = svm.SVC(class_weight='balanced')
+
+        model.fit(train_X,train_y)
+        pred_y = model.predict(test_X)
+
+        acc = (test_y == pred_y).sum() /  len(test_y)
+        print(glm, acc)
+
+
 if __name__ == "__main__":
 
-    run_glm(sub=0, sess=0, poisson=True, trial_by_trial=True)
+    run_glm(sub=0, sess=0, poisson=False, trial_by_trial=True)
+
+    # decode()
