@@ -79,8 +79,9 @@
     - remove noisy electrodes
     - CAR
 
+* Add explicit some spatial info - in the form of coordinates
+
 * With XGBOOST: uses ensemble of models
 
 * Electrode wise map possible from SVM
 
-* 
