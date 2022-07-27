@@ -3,12 +3,13 @@ import numpy as np
 from sklearn import linear_model
 from load_data import load_psd_dataset, subset_data_paths, append_dataset, update_labels
 from sklearn.model_selection import train_test_split,cross_val_score, cross_val_predict
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, accuracy_score
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.preprocessing import LabelEncoder
 from sklearn import svm
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
+from xgboost import XGBClassifier
 
 import pandas as pd
 import seaborn as sns
@@ -57,7 +58,7 @@ def postprocess_classif_metrics(results, model, lbl_corr, title=''):
         conf_mat = confusion_matrix(y, y_pred)
         conf_mats.append(conf_mat)
         if len(np.unique(y)) > 2: #multi class
-            row = {'model': model, 'subject': sbj_key, 'precison': precision_score(y, y_pred,average='weighted'), 'recall': recall_score(y, y_pred, average='weighted')  , 'F1': f1_score(y, y_pred, average='weighted') }
+            row = {'model': model, 'subject': sbj_key, 'precison': precision_score(y, y_pred,average='weighted'), 'recall': recall_score(y, y_pred, average='weighted')  , 'F1': f1_score(y, y_pred, average='weighted') ,'accuracy':accuracy_score(y, y_pred) }
         else: # binary cls
             row = {'model': model, 'subject': sbj_key, 'precison': precision_score(y, y_pred), 'recall': recall_score(y, y_pred)  , 'F1': f1_score(y, y_pred) }
         df = df.append(row, ignore_index=True)
@@ -107,8 +108,8 @@ if __name__ == "__main__":
 
         # model selection
         # model = linear_model.RidgeClassifier(alpha=.5, class_weight='balanced')
-        model = svm.SVC(class_weight='balanced')
-
+        #model = svm.SVC(class_weight='balanced')
+        model = XGBClassifier()
         # cross validate prediction accuracy
         curr_scores =  cross_val_score(model,X,y,cv=10)
         score_dict['sbj_'+str(i)] = curr_scores
@@ -129,7 +130,7 @@ if __name__ == "__main__":
         # print(test_y, pred_y)
 
     # barplot_scores(score_dict, 'SVM', title='4 class acc')
-    postprocess_classif_metrics(score_dict, 'SVM',lbl_corr, title='4 class acc')
+    postprocess_classif_metrics(score_dict, 'XGboost',lbl_corr, title='4 class acc')
 
    
     
