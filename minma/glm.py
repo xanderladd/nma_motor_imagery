@@ -1,4 +1,4 @@
-from load_data import (get_all_data, get_subject_data, get_raw, get_epochs, get_mean_evokeds, get_events)
+from minma.data import (get_all_data, get_subject_data, get_raw, get_epochs, get_mean_evokeds, get_events)
 import numpy as np
 from nilearn import plotting
 from nimare import utils
