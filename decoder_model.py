@@ -9,7 +9,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn import svm
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
-from xgboost import XGBClassifier
+from xgboost import XGBClassifier, plot_importance
 
 import pandas as pd
 import seaborn as sns
@@ -105,22 +105,26 @@ if __name__ == "__main__":
         lbl_corr = {i:key for i,key in enumerate( le.classes_)}
     
         X, y = curr_data['integrated_psd'], int_labels
-
+        #import pdb; pdb.set_trace()
         # model selection
         # model = linear_model.RidgeClassifier(alpha=.5, class_weight='balanced')
         #model = svm.SVC(class_weight='balanced')
-        model = XGBClassifier()
+        model_xgb = XGBClassifier()
         # cross validate prediction accuracy
-        curr_scores =  cross_val_score(model,X,y,cv=10)
-        score_dict['sbj_'+str(i)] = curr_scores
+        # curr_scores =  cross_val_score(model,X,y,cv=10)
+        # score_dict['sbj_'+str(i)] = curr_scores
         
         # cross validate confusion matr
-        y_pred =  cross_val_predict(model,X,y,cv=10)
+        y_pred =  cross_val_predict(model_xgb,X,y,cv=10)
         score_dict['sbj_'+str(i)] = {'y': y, 'y_pred': y_pred}
+        #this gives how the model will behave across data
+
+
+
 
         # not cross val
-        # train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=.2, shuffle=True)        
-        # model.fit(train_X,train_y)
+        train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=.2, shuffle=True)        
+        model_xgb.fit(train_X,train_y)
         # pred_y = model.predict(test_X)
         # # print out acc
         # acc = (test_y == pred_y).sum() /  len(test_y)
@@ -129,6 +133,20 @@ if __name__ == "__main__":
         # print(f'\n %.3f labels predicted correctly for sbj {i} \n' % acc)
         # print(test_y, pred_y)
 
+        ax = plot_importance(model_xgb)
+        fig_instance = ax.figure
+        #fig_instance.figure(figsize = (16, 10))
+        #fig_instance.xlabel("Feature importance")
+        
+        # feature_names = []
+        # for k in range(X.shape[1]):
+        #     feature_name = 'Electrode%i'%(k+1)
+        #     feature_names.append(feature_name)
+        # df = pd.DataFrame (feature_names, columns = ['feature_names'])
+        # sorted_idx = model_xgb.feature_importances_.argsort()
+        # plt.barh(df.feature_names[sorted_idx], model_xgb.feature_importances_[sorted_idx])
+
+        fig_instance.savefig('./plots/feature_imp_sub%i' %i,figsize = (16, 10),dpi= 800)
     # barplot_scores(score_dict, 'SVM', title='4 class acc')
     postprocess_classif_metrics(score_dict, 'XGboost',lbl_corr, title='4 class acc')
 
