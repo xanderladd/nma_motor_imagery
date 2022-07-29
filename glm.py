@@ -1,3 +1,4 @@
+from cProfile import label
 from load_data import (get_all_data, get_subject_data, get_raw, get_epochs, get_mean_evokeds, get_events)
 import numpy as np
 from nilearn import plotting
@@ -10,13 +11,21 @@ from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.utils.class_weight import compute_class_weight
 
+from sklearn.model_selection import train_test_split,cross_val_score, cross_val_predict
+
 from sklearn.preprocessing import LabelEncoder
 from sklearn import svm
 from sklearn import preprocessing
 
+from xgboost import XGBClassifier
+
 import pandas as pd
 
 import os
+
+import mne
+
+from decoder_model import postprocess_classif_metrics
 
 def get_mne_data(subject=0, session=0, epoch_with_rest=False):
     # Data from NMA
@@ -174,57 +183,54 @@ def run_glm(sub=0, sess=0, poisson=False, trial_by_trial=False):
     # get all mne specific data structures
     events, event_ids, raw, epochs, evokeds = get_mne_data(subject=sub, session=sess, epoch_with_rest=True)
 
+    if sess == 0:
+        sess = 'real'
+    else:
+        sess = 'imagery'
+
+    if poisson:
+        lnk = 'gamma'
+    else:
+        lnk = 'gaussian'
+
     if trial_by_trial:
         freq_filt_epochs = epochs.load_data().copy().filter(70, 115)
         conditions = list(event_ids.keys())
         conditions.remove('rest')
         for condition in conditions:
             power_y = (freq_filt_epochs[condition].get_data()*(10**6))**2
-            n_trials = power_y.shape[0]
+            filt_power_y = mne.filter.filter_data(power_y, 1000, 0, 20)
+            n_trials = filt_power_y.shape[0]
+            n_electrodes = filt_power_y.shape[1]
+            theta = np.empty((n_electrodes, n_trials))
             for trial in range(n_trials):
-
                 print(condition, trial)
-
-                y = power_y[trial, :, :]
+                y = filt_power_y[trial, :, :]
                 X, X_event_ids = make_design_matrix(raw, events, event_ids, trial_by_trial=True)
                 contrast = X_event_ids.copy()
                 contrast = np.select([contrast==event_ids[condition], contrast==10],[1, -1], 0)
                 contrast = np.insert(contrast, 0, 1)
                 X = X * contrast
-                print(X, contrast)
                 n_electrodes = y.shape[0]
-                theta_t = np.empty((n_electrodes, 4))
-                y_hat_t = np.empty_like(y)
-                r_square = np.empty(n_electrodes)
+                theta_t = np.empty((n_electrodes))
                 for elect in range(n_electrodes):
                     y_i = y[elect, :]
                     # Get the MLE weights for the LG model
                     theta_i, model = fit_GLM(y_i, X, poisson)
-                    # predict y with fitted parameters
-                    y_hat_i, r_square_i = predict_y(model, X, y_i)
-                    r_square[elect] = round(r_square_i, 3)
-                    # store fitted parameters
-                    theta_t[elect, :] = theta_i
-                    # store predicted y
-                    y_hat_t[elect, :] = y_hat_i
-
-                # # compare prediction from fitted weights with actual y
-                # plot_prediction(y, y_hat, sub, sess, just_prediction=False, trial=trial, save=True, show=False, condition=condition, r_square=r_square)
-                # # plot the weights on an electrode
-                # plot_theta(subject_data['locs'], theta, event_ids, X_event_ids, sub, sess, trial=trial, save=True, show=False, condition=condition)
-
-                # np.savetxt(f'data/theta_sub-{sub}_ses-{sess}_trial-{trial}_cond-{condition}.csv', theta, delimiter=",")
-                # np.savetxt(f'data/yhat_sub-{sub}_ses-{sess}_trial-{trial}_cond-{condition}.csv', y_hat, delimiter=",")
-
+                    # store fitted parameters for current condition
+                    condition_index = np.where(contrast==1)[0][1]
+                    theta_t[elect] = theta_i[condition_index]
+                theta[:, trial] = theta_t
+            data_file = f'data/theta_sub-{sub}_ses-{sess}_cond-{condition}_lnk-{lnk}.csv'
+            np.savetxt(data_file, theta, delimiter=",")
     else:
         X, X_event_ids = make_design_matrix(raw, events, event_ids)
         freq_filt_raw = raw.copy().filter(70, 115)
-        y = (freq_filt_raw.get_data()*(10**6))**2
+        power_y = (freq_filt_raw.get_data()*(10**6))**2
+        filt_power_y = mne.filter.filter_data(power_y, 1000, 0, 20)
 
         n_electrodes = y.shape[0]
-
         theta = np.empty((n_electrodes, 4))
-
         y_hat = np.empty_like(y)
 
         # fit the GLM and get theta weights for each electrode
@@ -245,58 +251,101 @@ def run_glm(sub=0, sess=0, poisson=False, trial_by_trial=False):
         # plot the weights on an electrode
         plot_theta(subject_data['locs'], theta, event_ids, X_event_ids, sub, sess)
 
-    return theta, y_hat
+    return 1
 
-def decode():
+def create_Xy(subject, sessions=['real', 'imagery'], only_sessions=False):
 
-    for glm in ['gaussian', 'gamma']:
-        data_path = f'data/{glm}'
+    data_path = 'data'
+    files = os.listdir(data_path)
+    labels_all = []
+    theta_all = []
 
-        files = os.listdir(data_path)
-
-        n_trials = len(files)
-
-        thetas = np.empty((46, int(n_trials)))
-
-        labels = []
-
-        for trial, file in enumerate(files):
-            info = file.split('.')[0].split('_')
-            cond = info[-1]
-            label = cond.split('-')[1]
-
-            labels.append(label)
-
-            theta = pd.read_csv(os.path.join(data_path, file), names=[0,1,2,3])
-
-            if label == 'tongue':
-                theta = theta.drop(columns=[0, 1, 3])
+    for file in files:
+        info = file.split('.')[0].split('_')
+        sub = int(info[1].split('-')[1])
+        sess = info[2].split('-')[1]
+        if sub == subject and sess in sessions:
+            cond = info[-2]
+            if only_sessions:
+                label = sess
             else:
-                theta = theta.drop(columns=[0, 1, 2])
-
+                label = sess + '_' + cond.split('-')[1]
+            theta = pd.read_csv(os.path.join(data_path, file), header=None)
             theta = theta.to_numpy()
+            labels = [label for i in range(theta.shape[1])]
+        else:
+            continue
+        theta_all.append(theta)
+        labels_all += labels
+    theta_all = np.hstack(theta_all)
+    X, y = theta_all.T, labels_all
+    scaler = preprocessing.StandardScaler().fit(X)
+    X_scaled = scaler.transform(X)
+    y = np.asarray(y)
+    return X_scaled, y
 
-            thetas[:, trial] = theta[:, 0]
+def decode(X, y, XGB=False):
 
-        X, y = thetas.T, labels
-
-        scaler = preprocessing.StandardScaler().fit(X)
-
-        X_scaled = scaler.transform(X)
-
-        train_X, test_X, train_y, test_y = train_test_split(X_scaled, y, test_size=.2, shuffle=True)
-
+    if XGB:
+        model = XGBClassifier()
+    else:
         model = svm.SVC(class_weight='balanced')
 
-        model.fit(train_X,train_y)
-        pred_y = model.predict(test_X)
+    le = LabelEncoder()
+    int_labels = le.fit_transform(y)
+    y = int_labels
+    lbl_corr = {i:key for i,key in enumerate(le.classes_)}
 
-        acc = (test_y == pred_y).sum() /  len(test_y)
-        print(glm, acc)
+    # cross validate confusion matr
+    y_pred = cross_val_predict(model, X, y, cv=10)
 
+    return y_pred, y, lbl_corr
+
+def tsne(X, y):
+
+    from sklearn.manifold import TSNE
+    import seaborn as sns
+
+    X_embedded = TSNE(n_components=2, learning_rate='auto',init='random').fit_transform(X)
+    
+    sns.scatterplot(x=X_embedded[:, 0], y=X_embedded[:, 1], hue=y)
+
+    plt.title('tSNE on GLM weights')
+    plt.legend()
+    plt.show()
+
+def pca(X, y):
+
+    from sklearn.decomposition import PCA
+    import seaborn as sns
+
+    pca = PCA(n_components=2)
+    X_transformed = pca.fit_transform(X)
+
+    print(pca.explained_variance_ratio_)
+
+    sns.scatterplot(x=X_transformed[:, 0], y=X_transformed[:, 1], hue=y)
+
+    plt.title('PCA on GLM weights')
+    plt.legend()
+    plt.show()    
 
 if __name__ == "__main__":
 
-    run_glm(sub=0, sess=0, poisson=False, trial_by_trial=True)
+    # for sub in range(0,7):
+    #     for sess in [0, 1]:
+    #         run_glm(sub=sub, sess=sess, poisson=False, trial_by_trial=True)
 
-    # decode()
+    score_dict = {}
+    for sub in range(0,7):
+        X, y = create_Xy(sub, ['real', 'imagery'], only_sessions=False)
+        y_pred, y, lbl_corr = decode(X, y, XGB=True)
+        score_dict['sbj_'+str(sub)] = {'y': y, 'y_pred': y_pred}
+
+    postprocess_classif_metrics(score_dict, 'SVM', lbl_corr, title='4 class acc')
+
+    # sub = 0
+
+    # X, conditions = create_Xy(sub, ['real', 'imagery'], only_sessions=False)
+    
+    # print(np.where(conditions in ['imagery_hand','imagery_tongue']))
