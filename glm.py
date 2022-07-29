@@ -253,7 +253,7 @@ def run_glm(sub=0, sess=0, poisson=False, trial_by_trial=False):
 
     return 1
 
-def create_Xy(subject, sessions=['real', 'imagery'], only_sessions=False):
+def create_Xy(subject, sessions=['real', 'imagery'], only_sessions=False, only_motor=False):
 
     data_path = 'data'
     files = os.listdir(data_path)
@@ -268,6 +268,8 @@ def create_Xy(subject, sessions=['real', 'imagery'], only_sessions=False):
             cond = info[-2]
             if only_sessions:
                 label = sess
+            elif only_motor:
+                label = cond.split('-')[1]
             else:
                 label = sess + '_' + cond.split('-')[1]
             theta = pd.read_csv(os.path.join(data_path, file), header=None)
@@ -310,7 +312,7 @@ def tsne(X, y):
     
     sns.scatterplot(x=X_embedded[:, 0], y=X_embedded[:, 1], hue=y)
 
-    plt.title('tSNE on GLM weights')
+    plt.title('tSNE over electrode weights')
     plt.legend()
     plt.show()
 
