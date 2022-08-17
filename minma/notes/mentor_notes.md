@@ -124,3 +124,31 @@
     - work on the abstract, send the write-up
     - meet tomorrow maybe around 1:45 am
 
+<<<<<<< HEAD:minma/notes/mentor_notes.md
+=======
+
+## W3D4 27th July
+
+* Electrode weights from GLM: interesting result, try with XGBOOST
+    - low pass filter after conversion to power - low pass filter 20hz - making the envelope less noisy
+    - spatial activation common for real and imagery
+    - what makes it diff from PSD
+    - timing information?
+
+* PSD of freq band: better prediction with XGBOOST
+    - Normalised? - divide or subtract with the preceding rest period - decreased the prediction accuracy
+    - Better prediction without normalisation
+    - HFB 70-150
+    - remove noisy electrodes
+    - CAR
+
+* Add explicit some spatial info - in the form of coordinates
+
+* With XGBOOST: uses ensemble of models
+
+* Electrode wise map possible from SVM
+
+* EMDC IEEE Conference: Biomedical conference
+
+* IEEE Neuroengineering conference
+>>>>>>> main:meet_John.md
