@@ -12,16 +12,7 @@ from nimare import utils
 import matplotlib.ticker as mticker
 import pickle
 import os
-# tutorial use only
-# Import some NeuroDSP functions to use with MNE
-# from neurodsp.spectral import compute_spectrum, trim_spectrum
-# from neurodsp.burst import detect_bursts_dual_threshold
-# from neurodsp.rhythm import compute_lagged_coherence
-
-# # Import NeuroDSP plotting functions
-# from neurodsp.plts import (plot_time_series, plot_power_spectra,
-#                            plot_bursts, plot_lagged_coherence)
-
+import pandas as pd
 import re
 
 def get_all_data(save_to='motor_imagery.npz'):
@@ -48,49 +39,6 @@ def get_all_data(save_to='motor_imagery.npz'):
 def get_subject_data(alldat, subject, session=0):
     return alldat[subject][session]
 
-def get_mne_data():
-    # Get the data path for the MNE example data
-    raw_fname = sample.data_path() + '/MEG/sample/sample_audvis_filt-0-40_raw.fif'
-    # Load the file of example MNE data
-    raw = io.read_raw_fif(raw_fname, preload=True, verbose=False)
-    # Select EEG channels from the dataset
-    raw = raw.pick_types(meg=False, eeg=True, eog=False, exclude='bads')
-    return raw
-
-def mne_tutorial(raw):
-    # Grab the sampling rate from the data
-    fs = raw.info['sfreq']
-    # Settings for exploring an example channel of data
-    ch_label = 'EEG 058'
-    t_start = 20000
-    t_stop = int(t_start + (10 * fs))
-    # Extract an example channel to explore
-    sig, times = raw.get_data(mne.pick_channels(raw.ch_names, [ch_label]),
-                            start=t_start, stop=t_stop, return_times=True)
-    sig = np.squeeze(sig)
-
-    # plot time series
-    fig = plt.figure(figsize=(8,3))
-    ax = fig.gca()
-    # Plot a segment of the extracted time series data
-    plot_time_series(times, sig, ax=ax)
-    fig.savefig('plots/time_series_plot_tutorial.png',facecolor='white', bbox_inches='tight')
-    plt.close(fig)
-    # Calculate the power spectrum, using median Welch's & extract a frequency range of interest
-    freqs, powers = compute_spectrum(sig, fs, method='welch', avg_type='median')
-    freqs, powers = trim_spectrum(freqs, powers, [3, 30])
-
-    # Check where the peak power is
-    peak_cf = freqs[np.argmax(powers)]
-    print(peak_cf)
-
-    # Plot the power spectra, and note the peak power
-    fig = plt.figure()
-    ax = fig.gca()
-    plot_power_spectra(freqs, powers, ax=ax)
-    ax.plot(freqs[np.argmax(powers)], np.max(powers), '.r', ms=12)
-    fig.savefig('plots/power_spectra_tutorial.png',facecolor='white', bbox_inches='tight')
-    plt.close(fig)
 
 def raw_to_signal(raw, t_start=None, t_stop=None, channels=[0], units='uV'):
     """
@@ -225,22 +173,57 @@ def append_dataset(main_dataset={}, added_dataset={}):
             main_dataset[key] = np.append(main_dataset[key], added_dataset[key])
     return main_dataset
 
-def combine_datasets():
+def preceeding_rest_norm(curr_data, norm_key='integrated_psd'):
+    for i in range(2,len(curr_data),2):
+        assert curr_data['labels'][i-1] == 'rest', 'not normalizing by rest'
+        curr_data[norm_key][i] = curr_data[norm_key][i] -  curr_data[norm_key][i-1]
+    return curr_data 
+
+def robust_scaler(curr_data, norm_key='integrated_psd'):
+    transformer = RobustScaler().fit(curr_data[norm_key])
+    curr_data[norm_key] = transformer.transform(curr_data[norm_key] )
+    return curr_data
+
+def combine_datasets(subjects=[0], file_keys=['mvmt|imagery','3s','hfb'], norm_type=None):
     """
     important NOTE : WIP a function that combines the pickles so we can test things over multiple subjects / conditons etc.
+    MISSING: needs breakpoints for where the data was pasted together 
     """
-    paths, titles = subset_data_paths(subjects=[0,1,3], file_keys=['mvmt','3s','hfb'])
+    paths, titles = subset_data_paths(subjects=subjects, file_keys=file_keys)    
     all_data = {}
     for curr_path, curr_title in zip(paths, titles):
-        curr_data = load_psd_dataset(curr_path,curr_title)
+        curr_data = load_psd_dataset(curr_title, curr_path)
+        if norm_type:
+            curr_data = eval(norm_type)(curr_data)
+        # THIS IS INCOMPLETE  -- need to parse "mvmt" or 'imagery' out of the title
+        # use split(title, '_') and then grab the 0 value in the list 
+        curr_data['labels'] = update_labels(curr_data['labels'],curr_title.split('_')[0]+'_')
         all_data = append_dataset(all_data, curr_data)
+    return all_data
+
         
+def filter_label(curr_data, label='rest'):
+    # inds = np.where(curr_data['labels'] != label)[0]
+    # inds = np.where(label in curr_data['labels'])[0]
+    inds = np.where(~pd.Series(curr_data['labels']).str.contains(label).values)
+    curr_data['labels'] = curr_data['labels'][inds]
+    curr_data['integrated_psd'] =  curr_data['integrated_psd'][inds]
+    curr_data['median_psd'] =  curr_data['median_psd'][inds]
+    return curr_data
+
+def convert_labels_mvmt_rest(dataset):
+    inds = np.where(curr_data['labels'] != 'rest')[0]
+    curr_data['labels'][inds] = np.repeat('movement', len(inds))
+    return curr_data
+
+
+
 
 if __name__ == "__main__":
 
     # NOTE: these are only from the tutorial
-    mne_data = get_mne_data()
-    mne_tutorial(mne_data)
+    # mne_data = get_mne_data()
+    # mne_tutorial(mne_data)
 
     # Data from NMA
     ECoG_data =  get_all_data()
