@@ -1,7 +1,68 @@
-# Discussions with John
+# Discussions
 
+## W3D4 28th July
+
+* slide 2:
+	- too much text
+	- 3 or 4 small sentences
+	- add more pictures
+	- eg. subset of electrodes with pic 
+
+* slide 3:
+	- less text
+	- and bigger font
+	- content perfect
+	- say slower
+	- emphasise the main parts
+	- don't repeat the title
+
+* slide 4:
+	- use animations
+	- bring pictures one by one, corresponding to each step
+	
+	
+* slide 5:
+	- best until now
+	- larger text in figures
+	
+	
+* slide 8:
+	- remove ref slide
+	- add a link to paper in the same slide
+	- eg. Miller et. al. 2010, PNAS
+	
+
+* have extra slides for discussion
+* have small lines 
+* time is most important
+* 10:15 pm UTC - 15 min before project time
 
 - 4 class classification should have confusion matrix
+
+## W3D4 27th July
+
+* Electrode weights from GLM: interesting result, try with XGBOOST
+    - low pass filter after conversion to power - low pass filter 20hz - making the envelope less noisy
+    - spatial activation common for real and imagery
+    - what makes it diff from PSD
+    - timing information?
+
+* PSD of freq band: better prediction with XGBOOST
+    - Normalised? - divide or subtract with the preceding rest period - decreased the prediction accuracy
+    - Better prediction without normalisation
+    - HFB 70-150
+    - remove noisy electrodes
+    - CAR
+
+* Add explicit some spatial info - in the form of coordinates
+
+* With XGBOOST: uses ensemble of models
+
+* Electrode wise map possible from SVM
+
+* EMDC IEEE Conference: Biomedical conference
+
+* IEEE Neuroengineering conference
 
 ## W2D3 20th July
 * Feature extraction:
@@ -62,3 +123,4 @@
 
     - work on the abstract, send the write-up
     - meet tomorrow maybe around 1:45 am
+
